@@ -9,13 +9,8 @@ namespace Librarian
     /// <summary>
     /// Responsible for handling all traffic in and out the internet
     /// </summary>
-    public class WebAccess
+    public static class WebAccess
     {
-        /// <summary>
-        /// The location of the launchers json file to look up the currently available versions
-        /// </summary>
-        public const string VersionInfoLocation = @"https://launchermeta.mojang.com/mc/game/version_manifest.json";
-
         /// <summary>
         /// Downloads a file from an url and stores it on the local filesystem
         /// </summary>

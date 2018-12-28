@@ -63,5 +63,15 @@ namespace LibrarianTests
             Assert.AreEqual(35155114L, gameVersion.ServerDownloadSize);
 
         }
+
+        [Test]
+        public void TestLauncherInventoryLoad()
+        {
+            LauncherInventory launcherInventory = new LauncherInventory();
+
+            Assert.NotNull(launcherInventory.LatestReleaseId);
+            Assert.NotNull(launcherInventory.LatestSnapshotId);
+            Assert.True(launcherInventory.AvailableVersions.Count > 0);
+        }
     }
 }

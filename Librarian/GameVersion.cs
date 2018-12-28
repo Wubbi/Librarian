@@ -26,14 +26,14 @@ namespace Librarian
         public string VersionMetadataUrl { get; }
 
         /// <summary>
-        /// The date and time when this version was uploaded
-        /// </summary>
-        public DateTime TimeOfUpload { get; }
-
-        /// <summary>
         /// The date and time when this version was made available to the launcher
         /// </summary>
         public DateTime TimeOfPublication { get; }
+
+        /// <summary>
+        /// The date and time when this version was uploaded
+        /// </summary>
+        public DateTime TimeOfUpload { get; }
 
 
         //### Secondary data from the versions direct metadata ###
@@ -41,22 +41,22 @@ namespace Librarian
         /// <summary>
         /// The url from which the client's .jar file can be downloaded
         /// </summary>
-        public string ClientDownloadUrl { get; }
+        public string ClientDownloadUrl { get; private set; }
 
         /// <summary>
         /// The size of the client's .jar file in bytes
         /// </summary>
-        public long ClientDownloadSize { get; }
+        public long ClientDownloadSize { get; private set; }
 
         /// <summary>
         /// The url from which the client's .jar file can be downloaded
         /// </summary>
-        public string ServerDownloadUrl { get; }
+        public string ServerDownloadUrl { get; private set; }
 
         /// <summary>
         /// The size of the server's .jar file in bytes
         /// </summary>
-        public long ServerDownloadSize { get; }
+        public long ServerDownloadSize { get; private set; }
 
 
         /// <summary>
@@ -64,7 +64,7 @@ namespace Librarian
         /// followed by downloading the appropriate metadata for this version
         /// </summary>
         /// <param name="launcherJson">The entry in the versions array of the wanted version in the launcher manifest</param>
-        /// <param name="parseOnly">If set to true no additional data will be downloaded and only the given values are parsed</param>
+        /// <param name="parseOnly">If set to true no metadata will be downloaded and only the given string is parsed</param>
         public GameVersion(string launcherJson, bool parseOnly = false)
         {
             JObject manifestSnippet = JObject.Parse(launcherJson);
@@ -95,6 +95,14 @@ namespace Librarian
             if (parseOnly)
                 return;
 
+            DownloadParseMetadata();
+        }
+
+        /// <summary>
+        /// Downloads the metadata according to <see cref="VersionMetadataUrl"/> and parses it's content
+        /// </summary>
+        public void DownloadParseMetadata()
+        {
             JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
 
             JToken downloads = metadata["downloads"];

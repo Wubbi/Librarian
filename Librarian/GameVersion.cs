@@ -174,14 +174,18 @@ namespace Librarian
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl) && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload) && string.Equals(ClientDownloadUrl, other.ClientDownloadUrl) && ClientDownloadSize == other.ClientDownloadSize && string.Equals(ServerDownloadUrl, other.ServerDownloadUrl) && ServerDownloadSize == other.ServerDownloadSize;
+            return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl) 
+                   && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload) 
+                   && string.Equals(ClientDownloadUrl, other.ClientDownloadUrl) && ClientDownloadSize == other.ClientDownloadSize 
+                   && string.Equals(ServerDownloadUrl, other.ServerDownloadUrl) && ServerDownloadSize == other.ServerDownloadSize 
+                   && MetadataWasLoaded==other.MetadataWasLoaded;
         }
 
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
+            if (obj.GetType() != GetType()) return false;
             return Equals((GameVersion)obj);
         }
 
@@ -198,6 +202,7 @@ namespace Librarian
                 hashCode = (hashCode * 397) ^ ClientDownloadSize.GetHashCode();
                 hashCode = (hashCode * 397) ^ (ServerDownloadUrl != null ? ServerDownloadUrl.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ ServerDownloadSize.GetHashCode();
+                hashCode = (hashCode * 397) ^ MetadataWasLoaded.GetHashCode();
                 return hashCode;
             }
         }

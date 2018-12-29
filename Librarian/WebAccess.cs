@@ -49,8 +49,8 @@ namespace Librarian
         {
             byte[] downloadedFile = DownloadFile(url, expectedSize);
 
-            if(encoding==null)
-                encoding=Encoding.UTF8;
+            if (encoding == null)
+                encoding = Encoding.UTF8;
 
             return encoding.GetString(downloadedFile);
         }

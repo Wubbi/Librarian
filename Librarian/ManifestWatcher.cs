@@ -14,21 +14,21 @@ namespace Librarian
         private readonly Timer _timer;
 
         /// <summary>
-        /// The <see cref="LauncherInventory"/> which is compared with the current one
+        /// The current <see cref="LauncherInventory"/>
         /// </summary>
-        private LauncherInventory _comparisonInventory;
+        public LauncherInventory CurrentInventory { get; private set; }
 
         /// <summary>
         /// Fires when the launchers version manifest received an update of some sort
         /// </summary>
-        public event Action<LauncherInventory> ChangeInLauncherManifest;
+        public event Action<LauncherInventory.Diff> ChangeInLauncherManifest;
 
         /// <summary>
         /// Creates a new <see cref="ManifestWatcher"/> that performs regular comparisons of the current manifest file with the known one
         /// </summary>
         public ManifestWatcher()
         {
-            _comparisonInventory = new LauncherInventory();
+            CurrentInventory = new LauncherInventory();
 
             _timer = new Timer(CheckLauncherManifest, null, TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(-1));
         }
@@ -39,7 +39,8 @@ namespace Librarian
         /// <param name="interval">The time in between update checks</param>
         public void Start(TimeSpan interval)
         {
-            _timer.Change(TimeSpan.Zero, interval);
+            lock (_timer)
+                _timer.Change(TimeSpan.Zero, interval);
         }
 
         /// <summary>
@@ -47,7 +48,8 @@ namespace Librarian
         /// </summary>
         public void Stop()
         {
-            _timer.Change(TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(-1));
+            lock (_timer)
+                _timer.Change(TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(-1));
         }
 
         /// <summary>
@@ -56,13 +58,14 @@ namespace Librarian
         /// <param name="state"></param>
         private void CheckLauncherManifest(object state)
         {
-            LauncherInventory currentInventory = new LauncherInventory();
+            LauncherInventory liveInventory = new LauncherInventory();
 
-            if (currentInventory.Equals(_comparisonInventory))
+            if (liveInventory.Equals(CurrentInventory))
                 return;
 
-            _comparisonInventory = currentInventory;
-            ChangeInLauncherManifest?.Invoke(currentInventory);
+            ChangeInLauncherManifest?.Invoke(new LauncherInventory.Diff(CurrentInventory, liveInventory));
+
+            CurrentInventory = liveInventory;
         }
 
         public void Dispose()

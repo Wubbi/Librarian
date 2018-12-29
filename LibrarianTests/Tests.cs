@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using Librarian;
 using NUnit.Framework;
 
@@ -72,6 +73,21 @@ namespace LibrarianTests
             Assert.NotNull(launcherInventory.LatestReleaseId);
             Assert.NotNull(launcherInventory.LatestSnapshotId);
             Assert.True(launcherInventory.AvailableVersions.Count > 0);
+        }
+
+        [Test]
+        public void TestWatcherBaseFunctions()
+        {
+            ManifestWatcher watcher = new ManifestWatcher();
+            Assert.NotNull(watcher.CurrentInventory);
+            Thread.Sleep(1000);
+            watcher.Start(TimeSpan.FromHours(1));
+            Thread.Sleep(1000);
+            watcher.Start(TimeSpan.FromHours(2));
+            Thread.Sleep(1000);
+            watcher.Stop();
+            watcher.Dispose();
+            Assert.Throws<ObjectDisposedException>(() => watcher.Start(TimeSpan.FromDays(1)));
         }
     }
 }

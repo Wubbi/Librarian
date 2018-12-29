@@ -102,7 +102,7 @@ namespace Librarian
             TimeOfPublication = DateTime.Parse(manifestSnippet["time"].ToString());
             TimeOfUpload = DateTime.Parse(manifestSnippet["releaseTime"].ToString());
 
-            LibrarySubFolder = Path.Combine(Type.ToString(), Id, TimeOfPublication.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss"));
+            LibrarySubFolder = Path.Combine(Type.ToString(), Id, TimeOfUpload.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss"));
 
             if (parseOnly)
                 return;

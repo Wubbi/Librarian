@@ -1,0 +1,44 @@
+{
+	refreshRate:30,
+	libraryPath:"G:/Library",
+	addMissingVersions:true,
+	tasks:
+	[
+		{
+			beforeDownload:true,
+			dependedOnIds:[],
+			type:"Snapshot",
+			onLatest:false,
+			onAdded:true,
+			onChanged:true,
+			onRemoved:false,
+			commands:
+			[
+				"echo Snapshot version $id is out!",
+				"echo It will be stored in $path"
+			],
+			params:
+			{
+				id:"$id",
+				path:"$path"
+			}
+		},
+		{
+			beforeDownload:false,
+			dependedOnIds:[],
+			type:"Snapshot",
+			onLatest:false,
+			onAdded:true,
+			onChanged:false,
+			onRemoved:false,
+			commands:
+			[
+				"echo It was stored in $path"
+			],
+			params:
+			{
+				path:"$path"
+			}
+		}
+	]
+}

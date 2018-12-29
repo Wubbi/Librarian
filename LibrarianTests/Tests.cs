@@ -96,7 +96,7 @@ namespace LibrarianTests
             const string json = @"{
 	                                refreshRate:30,
 	                                libraryPath:""G:/Library"",
-	                                catchUp:false,
+	                                addMissingVersions:false,
 	                                tasks:
 	                                [
 		                                {
@@ -110,7 +110,7 @@ namespace LibrarianTests
 			                                commands:
 			                                [
 				                                ""echo Snapshot version $id is out!"",
-				                                ""echo It will stored in $path""
+				                                ""echo It will be stored in $path""
 			                                ],
 			                                params:
 			                                {

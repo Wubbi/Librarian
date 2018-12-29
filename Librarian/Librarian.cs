@@ -33,6 +33,9 @@ namespace Librarian
 
             Settings = new Settings(File.ReadAllText(settingsFile));
 
+            if (!Directory.Exists(Settings.LibraryPath))
+                Directory.CreateDirectory(Settings.LibraryPath);
+
             _launcherManifestUpdates = new BlockingCollection<LauncherInventory.Diff>();
 
             _manifestWatcher = new ManifestWatcher();
@@ -50,7 +53,7 @@ namespace Librarian
 
             _manifestWatcher.Start(TimeSpan.FromSeconds(Settings.ManifestRefreshRate));
 
-            foreach (LauncherInventory.Diff update in _launcherManifestUpdates)
+            foreach (LauncherInventory.Diff update in _launcherManifestUpdates.GetConsumingEnumerable())
             {
                 TriggerActions(update, false);
                 MaintainLibrary(update.AddedVersions.Concat(update.ChangedVersions).OrderBy(v => v.TimeOfUpload));
@@ -60,9 +63,6 @@ namespace Librarian
 
         private void MaintainLibrary(IEnumerable<GameVersion> versionsToMaintain)
         {
-            if (!Directory.Exists(Settings.LibraryPath))
-                Directory.CreateDirectory(Settings.LibraryPath);
-            
             foreach (GameVersion gameVersion in versionsToMaintain)
             {
                 string intendedPath = Path.Combine(Settings.LibraryPath, gameVersion.LibrarySubFolder);

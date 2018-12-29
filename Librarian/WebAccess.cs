@@ -15,19 +15,24 @@ namespace Librarian
         /// Downloads a file from an url and stores it on the local filesystem
         /// </summary>
         /// <param name="url">The location of the file as url</param>
-        /// <param name="file">The file as which to save the downloaded data, or null to generate a name from the <paramref name="url"/>. Existing files are overwritten</param>
+        /// <param name="file">The file as which to save the downloaded data. If it is null or a directory the name is generated from the <paramref name="url"/>. Existing files are overwritten</param>
         /// <param name="expectedSize">The expected size of the file in bytes</param>
         /// <returns>The name of the downloaded file</returns>
-        /// <exception cref="ArgumentException"><paramref name="file"/> is null but no filename could be generated from the <paramref name="url"/></exception>
+        /// <exception cref="ArgumentException"><paramref name="file"/> is null or a directory but no filename could be generated from the <paramref name="url"/></exception>
         /// <exception cref="InvalidDataException">The file size does not match <paramref name="expectedSize"/></exception>
         public static string DownloadAndStoreFile(string url, string file = null, long expectedSize = 0)
         {
-            if (file == null)
+            if (file == null || Directory.Exists(file))
             {
-                file = url.Substring(url.LastIndexOf('/') + 1);
+                string fileName = url.Substring(url.LastIndexOf('/') + 1);
 
-                if (file.Length <= 0 || file.Intersect(Path.GetInvalidFileNameChars()).Any())
+                if (fileName.Length <= 0 || fileName.Intersect(Path.GetInvalidFileNameChars()).Any())
                     throw new ArgumentException("Could not get valid filename from URL");
+
+                if (Directory.Exists(file))
+                    file = Path.Combine(file, fileName);
+                else
+                    file = fileName;
             }
 
             byte[] downloadFile = DownloadFile(url, expectedSize);

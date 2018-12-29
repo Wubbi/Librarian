@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using Newtonsoft.Json.Linq;
 
 namespace Librarian
@@ -35,6 +36,11 @@ namespace Librarian
         /// </summary>
         public DateTime TimeOfUpload { get; }
 
+        /// <summary>
+        /// The folder in which this version is stored within the library main folder
+        /// </summary>
+        public string LibrarySubFolder { get; }
+
 
         //### Secondary data from the versions direct metadata ###
 
@@ -44,7 +50,7 @@ namespace Librarian
         public bool MetadataWasLoaded { get; }
 
         /// <summary>
-        /// The url from which the client's .jar file can be downloaded
+        /// The url from which the client's .jar file can be downloaded or null if no client download is available
         /// </summary>
         public string ClientDownloadUrl { get; }
 
@@ -54,7 +60,7 @@ namespace Librarian
         public long ClientDownloadSize { get; }
 
         /// <summary>
-        /// The url from which the client's .jar file can be downloaded
+        /// The url from which the client's .jar file can be downloaded or null if no server download is available
         /// </summary>
         public string ServerDownloadUrl { get; }
 
@@ -62,7 +68,6 @@ namespace Librarian
         /// The size of the server's .jar file in bytes
         /// </summary>
         public long ServerDownloadSize { get; }
-
 
         /// <summary>
         /// Creates a new <see cref="GameVersion"/> object by first parsing the given json snippet from the launchers version manifest
@@ -85,10 +90,10 @@ namespace Librarian
                     Type = BuildType.Snapshot;
                     break;
                 case "old_alpha":
-                    Type = BuildType.LegacyAlpha;
+                    Type = BuildType.Alpha;
                     break;
                 case "old_beta":
-                    Type = BuildType.LegacyBeta;
+                    Type = BuildType.Beta;
                     break;
             }
 
@@ -96,6 +101,8 @@ namespace Librarian
 
             TimeOfPublication = DateTime.Parse(manifestSnippet["time"].ToString());
             TimeOfUpload = DateTime.Parse(manifestSnippet["releaseTime"].ToString());
+
+            LibrarySubFolder = Path.Combine(Type.ToString(), Id, TimeOfPublication.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss"));
 
             if (parseOnly)
                 return;
@@ -134,6 +141,7 @@ namespace Librarian
             VersionMetadataUrl = other.VersionMetadataUrl;
             TimeOfPublication = other.TimeOfPublication;
             TimeOfUpload = other.TimeOfUpload;
+            LibrarySubFolder = other.LibrarySubFolder;
 
             JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
 
@@ -166,19 +174,19 @@ namespace Librarian
             Unknown = 0,
             Release = 1,
             Snapshot = 2,
-            LegacyAlpha = 3,
-            LegacyBeta = 4
+            Alpha = 3,
+            Beta = 4
         }
 
         public bool Equals(GameVersion other)
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl) 
-                   && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload) 
-                   && string.Equals(ClientDownloadUrl, other.ClientDownloadUrl) && ClientDownloadSize == other.ClientDownloadSize 
-                   && string.Equals(ServerDownloadUrl, other.ServerDownloadUrl) && ServerDownloadSize == other.ServerDownloadSize 
-                   && MetadataWasLoaded==other.MetadataWasLoaded;
+            return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl)
+                   && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload)
+                   && MetadataWasLoaded == other.MetadataWasLoaded
+                   && string.Equals(ClientDownloadUrl, other.ClientDownloadUrl) && ClientDownloadSize == other.ClientDownloadSize
+                   && string.Equals(ServerDownloadUrl, other.ServerDownloadUrl) && ServerDownloadSize == other.ServerDownloadSize;
         }
 
         public override bool Equals(object obj)
@@ -198,11 +206,11 @@ namespace Librarian
                 hashCode = (hashCode * 397) ^ (VersionMetadataUrl != null ? VersionMetadataUrl.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ TimeOfPublication.GetHashCode();
                 hashCode = (hashCode * 397) ^ TimeOfUpload.GetHashCode();
+                hashCode = (hashCode * 397) ^ MetadataWasLoaded.GetHashCode();
                 hashCode = (hashCode * 397) ^ (ClientDownloadUrl != null ? ClientDownloadUrl.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ ClientDownloadSize.GetHashCode();
                 hashCode = (hashCode * 397) ^ (ServerDownloadUrl != null ? ServerDownloadUrl.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ ServerDownloadSize.GetHashCode();
-                hashCode = (hashCode * 397) ^ MetadataWasLoaded.GetHashCode();
                 return hashCode;
             }
         }

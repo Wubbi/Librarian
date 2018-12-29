@@ -2,6 +2,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
 
 namespace Librarian
 {
@@ -10,11 +12,6 @@ namespace Librarian
     /// </summary>
     public class Librarian : IDisposable
     {
-        /// <summary>
-        /// The path to the directory in which the library is to be maintained
-        /// </summary>
-        public string LibrayPath { get; }
-
         /// <summary>
         /// The settings this <see cref="Librarian"/> was initialized with
         /// </summary>
@@ -49,9 +46,49 @@ namespace Librarian
         /// </summary>
         public void Run()
         {
+            _manifestWatcher.Start(TimeSpan.FromSeconds(Settings.ManifestRefreshRate));
+
             foreach (LauncherInventory.Diff update in _launcherManifestUpdates)
             {
-                TriggerActions(update);
+                TriggerActions(update, false);
+                MaintainLibrary(update);
+                TriggerActions(update, true);
+            }
+        }
+
+        private void MaintainLibrary(LauncherInventory.Diff inventoryUpdate)
+        {
+            if (!Directory.Exists(Settings.LibraryPath))
+                Directory.CreateDirectory(Settings.LibraryPath);
+
+            IEnumerable<GameVersion> versionsToCheck = inventoryUpdate.AddedVersions.Concat(inventoryUpdate.ChangedVersions).OrderBy(v => v.TimeOfUpload);
+
+            foreach (GameVersion gameVersion in versionsToCheck)
+            {
+                string intendedPath = Path.Combine(Settings.LibraryPath, gameVersion.LibrarySubFolder);
+
+                if (Directory.Exists(intendedPath))
+                    continue;
+
+                GameVersion withMetadata = new GameVersion(gameVersion);
+
+                if (withMetadata.ServerDownloadUrl != null)
+                {
+                    string path = Path.Combine(intendedPath, "Server");
+
+                    Directory.CreateDirectory(path);
+
+                    WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize);
+                }
+
+                if (withMetadata.ClientDownloadUrl != null)
+                {
+                    string path = Path.Combine(intendedPath, "Client");
+
+                    Directory.CreateDirectory(path);
+
+                    WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize);
+                }
             }
         }
 
@@ -59,7 +96,8 @@ namespace Librarian
         /// Processes all actions based on an update
         /// </summary>
         /// <param name="inventoryUpdate"></param>
-        private void TriggerActions(LauncherInventory.Diff inventoryUpdate)
+        /// <param name="downloadsComplete"></param>
+        private void TriggerActions(LauncherInventory.Diff inventoryUpdate, bool downloadsComplete)
         {
             List<ConditionalAction> actionsToRun = new List<ConditionalAction>(_conditionalActions);
             List<int> completedIds = new List<int>();
@@ -71,7 +109,7 @@ namespace Librarian
 
                 for (int i = 0; i < actionsToRun.Count; ++i)
                 {
-                    if (!actionsToRun[i].ConditionsFulfilled(inventoryUpdate, completedIds))
+                    if (!actionsToRun[i].ConditionsFulfilled(inventoryUpdate, completedIds, downloadsComplete))
                         continue;
 
                     if (actionsToRun[i].ActionsPerformed(inventoryUpdate))

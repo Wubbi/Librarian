@@ -24,9 +24,9 @@ namespace Librarian
             _actions = actions;
         }
 
-        public bool ConditionsFulfilled(LauncherInventory.Diff inventoryUpdate, IEnumerable<int> completedIds)
+        public bool ConditionsFulfilled(LauncherInventory.Diff inventoryUpdate, IEnumerable<int> completedIds, bool downloadsCompleted)
         {
-            return _conditions.Fulfilled(inventoryUpdate, completedIds);
+            return _conditions.Fulfilled(inventoryUpdate, completedIds, downloadsCompleted);
         }
 
         public bool ActionsPerformed(LauncherInventory.Diff inventoryUpdate)
@@ -43,7 +43,7 @@ namespace Librarian
             /// Checks all set conditions
             /// </summary>
             /// <returns>True if all conditions are met, False otherwise</returns>
-            public bool Fulfilled(LauncherInventory.Diff inventoryUpdate, IEnumerable<int> completedIds)
+            public bool Fulfilled(LauncherInventory.Diff inventoryUpdate, IEnumerable<int> completedIds, bool downloadsCompleted)
             {
                 return true;
             }

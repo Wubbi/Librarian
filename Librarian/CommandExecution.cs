@@ -33,18 +33,12 @@ namespace Librarian
                     return process.ExitCode;
                 }
             }
-#if DEBUG
             catch (Exception e)
             {
-                Debug.WriteLine(e);
+                e.Data["Command"] = command;
+                Logger.Exception(e);
                 return -1;
             }
-#else
-            catch
-            {
-                return -1;
-            }
-#endif
         }
     }
 }

@@ -74,7 +74,7 @@ namespace Librarian
                 byte[] downloadedData = webClient.DownloadData(url);
 
                 if (expectedSize > 0L && downloadedData.LongLength != expectedSize)
-                    throw new InvalidDataException("The downloaded data does not match the expected size");
+                    throw new InvalidDataException($"The downloaded data ({downloadedData.LongLength} Bytes) does not match the expected size ({expectedSize} Bytes)");
 
                 return downloadedData;
             }

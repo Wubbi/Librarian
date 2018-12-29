@@ -36,11 +36,15 @@ namespace Librarian
             if (!Directory.Exists(Settings.LibraryPath))
                 Directory.CreateDirectory(Settings.LibraryPath);
 
+            Logger.SetLogFilePath(Path.Combine(Settings.LibraryPath, "log.txt"));
+
             _launcherManifestUpdates = new BlockingCollection<LauncherInventory.Diff>();
 
             _manifestWatcher = new ManifestWatcher();
 
             _manifestWatcher.ChangeInLauncherManifest += diff => _launcherManifestUpdates.Add(diff);
+
+            Logger.Info("Librarian initialized");
         }
 
         /// <summary>
@@ -48,21 +52,29 @@ namespace Librarian
         /// </summary>
         public void Run()
         {
-            if(Settings.ProcessMissedUpdates)
+            Logger.Info("Starting run");
+
+            if (Settings.ProcessMissedUpdates)
+            {
+                Logger.Info("Processing missing versions");
                 MaintainLibrary(_manifestWatcher.CurrentInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload));
+            }
 
             _manifestWatcher.Start(TimeSpan.FromSeconds(Settings.ManifestRefreshRate));
 
             foreach (LauncherInventory.Diff update in _launcherManifestUpdates.GetConsumingEnumerable())
             {
+                Logger.Info("Processing update of manifest");
                 TriggerActions(update, false);
                 MaintainLibrary(update.AddedVersions.Concat(update.ChangedVersions).OrderBy(v => v.TimeOfUpload));
                 TriggerActions(update, true);
+                Logger.Info("Update processed");
             }
         }
 
         private void MaintainLibrary(IEnumerable<GameVersion> versionsToMaintain)
         {
+            Logger.Info("Updating library");
             foreach (GameVersion gameVersion in versionsToMaintain)
             {
                 string intendedPath = Path.Combine(Settings.LibraryPath, gameVersion.LibrarySubFolder);
@@ -70,22 +82,39 @@ namespace Librarian
                 if (Directory.Exists(intendedPath))
                     continue;
 
+                Logger.Info("Adding missing version " + gameVersion.Id);
+
                 Directory.CreateDirectory(intendedPath);
 
                 GameVersion withMetadata = new GameVersion(gameVersion);
 
-                if (withMetadata.ServerDownloadUrl != null)
+                try
                 {
-                    string path = Path.Combine(intendedPath, "server.jar");
-                    WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize);
+                    if (withMetadata.ServerDownloadUrl != null)
+                    {
+                        Logger.Info("Downloading server.jar");
+                        string path = Path.Combine(intendedPath, "server.jar");
+                        WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize);
+                        Logger.Info("Download complete");
+                    }
+
+                    if (withMetadata.ClientDownloadUrl != null)
+                    {
+                        Logger.Info("Downloading client.jar");
+                        string path = Path.Combine(intendedPath, "client.jar");
+                        WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize);
+                        Logger.Info("Download complete");
+                    }
+                }
+                catch (Exception e)
+                {
+                    e.Data["Path"] = intendedPath;
+                    Logger.Exception(e);
                 }
 
-                if (withMetadata.ClientDownloadUrl != null)
-                {
-                    string path = Path.Combine(intendedPath, "client.jar");
-                    WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize);
-                }
+                Logger.Info($"Added {gameVersion.Type} version {gameVersion.Id}");
             }
+            Logger.Info("Update of library complete");
         }
 
         /// <summary>
@@ -122,6 +151,7 @@ namespace Librarian
 
         public void Dispose()
         {
+            Logger.Info("Disposing Librarian");
             _manifestWatcher?.Dispose();
             _launcherManifestUpdates?.Dispose();
         }

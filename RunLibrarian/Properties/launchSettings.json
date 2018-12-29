@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RunLibrarian": {
+      "commandName": "Project",
+      "commandLineArgs": "\"../../../../settings.json\""
+    }
+  }
+}

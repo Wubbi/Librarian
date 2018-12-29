@@ -8,9 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="..\License\Json.NET License.txt" Link="Json.NET License.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Include="..\External Licenses\Json.NET License.txt" Link="Json.NET License.txt" />
   </ItemGroup>
 
   <ItemGroup>

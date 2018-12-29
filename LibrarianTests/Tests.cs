@@ -89,5 +89,61 @@ namespace LibrarianTests
             watcher.Dispose();
             Assert.Throws<ObjectDisposedException>(() => watcher.Start(TimeSpan.FromDays(1)));
         }
+
+        [Test]
+        public void TestSettingsParsing()
+        {
+            const string json = @"{
+	                                refreshRate:30,
+	                                libraryPath:""G:/Library"",
+	                                catchUp:false,
+	                                tasks:
+	                                [
+		                                {
+			                                beforeDownload:true,
+			                                dependedOnIds:[],
+			                                type:""Snapshot"",
+			                                onLatest:false,
+			                                onAdded:true,
+			                                onChanged:true,
+			                                onRemoved:false,
+			                                commands:
+			                                [
+				                                ""echo Snapshot version $id is out!"",
+				                                ""echo It will stored in $path""
+			                                ],
+			                                params:
+			                                {
+				                                id:""$id"",
+				                                path:""$path""
+			                                }
+		                                },
+		                                {
+			                                beforeDownload:false,
+			                                dependedOnIds:[],
+			                                type:""Snapshot"",
+			                                onLatest:false,
+			                                onAdded:true,
+			                                onChanged:false,
+			                                onRemoved:false,
+			                                commands:
+			                                [
+				                                ""echo It was stored in $path""
+			                                ],
+			                                params:
+			                                {
+				                                path:""$path""
+			                                }
+		                                }
+	                                ]
+                                }";
+
+            Settings settings = new Settings(json);
+
+            Assert.AreEqual(30, settings.ManifestRefreshRate);
+            Assert.AreEqual("G:/Library", settings.LibraryPath);
+            Assert.AreEqual(false, settings.ProcessMissedUpdates);
+            Assert.AreEqual(2, settings.ConditionalActions.Count);
+        }
     }
 }

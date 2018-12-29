@@ -49,7 +49,7 @@ namespace Librarian
 
         public bool Equals(LauncherInventory other)
         {
-            if (ReferenceEquals(null, other)) return false;
+            if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             if (!string.Equals(LatestReleaseId, other.LatestReleaseId) || !string.Equals(LatestSnapshotId, other.LatestSnapshotId) || AvailableVersions.Count != other.AvailableVersions.Count)
                 return false;
@@ -59,7 +59,7 @@ namespace Librarian
 
         public override bool Equals(object obj)
         {
-            if (ReferenceEquals(null, obj)) return false;
+            if (obj is null) return false;
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != GetType()) return false;
             return Equals((LauncherInventory)obj);
@@ -107,17 +107,24 @@ namespace Librarian
             public ReadOnlyCollection<GameVersion> RemovedVersions { get; }
 
             /// <summary>
+            /// The old inventory use for this diff
+            /// </summary>
+            public LauncherInventory OldInventory { get; }
+
+            /// <summary>
+            /// The new inventory used for this diff
+            /// </summary>
+            public LauncherInventory NewInventory { get; }
+
+            /// <summary>
             /// Creates a new <see cref="Diff"/> based on the changes made from one <see cref="LauncherInventory"/> to another
             /// </summary>
             /// <param name="fromInventory">The old inventory, which got changed</param>
             /// <param name="toInventory">The new inventory, in which the changes are present</param>
             public Diff(LauncherInventory fromInventory, LauncherInventory toInventory)
             {
-                if (fromInventory is null)
-                    throw new ArgumentNullException(nameof(fromInventory));
-
-                if (toInventory is null)
-                    throw new ArgumentNullException(nameof(toInventory));
+                OldInventory = fromInventory ?? throw new ArgumentNullException(nameof(fromInventory));
+                NewInventory = toInventory ?? throw new ArgumentNullException(nameof(toInventory));
 
                 if (fromInventory.LatestReleaseId != toInventory.LatestReleaseId)
                     NewReleaseId = toInventory.LatestReleaseId;

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 
@@ -23,17 +22,17 @@ namespace Librarian
         private readonly ManifestWatcher _manifestWatcher;
 
         /// <summary>
-        /// A list af actions that execute if their filters match the current circumstances
-        /// </summary>
-        private readonly ReadOnlyCollection<ConditionalAction> _conditionalActions;
-
-        /// <summary>
         /// A list of subsequent updates on the launcher manifest
         /// </summary>
         private readonly BlockingCollection<LauncherInventory.Diff> _launcherManifestUpdates;
 
-        public Librarian()
+        public Librarian(string settingsFile)
         {
+            if (!File.Exists(settingsFile))
+                throw new ArgumentException($"Can't find settings \"{settingsFile}\"", nameof(settingsFile));
+
+            Settings = new Settings(File.ReadAllText(settingsFile));
+
             _launcherManifestUpdates = new BlockingCollection<LauncherInventory.Diff>();
 
             _manifestWatcher = new ManifestWatcher();
@@ -46,47 +45,44 @@ namespace Librarian
         /// </summary>
         public void Run()
         {
+            if(Settings.ProcessMissedUpdates)
+                MaintainLibrary(_manifestWatcher.CurrentInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload));
+
             _manifestWatcher.Start(TimeSpan.FromSeconds(Settings.ManifestRefreshRate));
 
             foreach (LauncherInventory.Diff update in _launcherManifestUpdates)
             {
                 TriggerActions(update, false);
-                MaintainLibrary(update);
+                MaintainLibrary(update.AddedVersions.Concat(update.ChangedVersions).OrderBy(v => v.TimeOfUpload));
                 TriggerActions(update, true);
             }
         }
 
-        private void MaintainLibrary(LauncherInventory.Diff inventoryUpdate)
+        private void MaintainLibrary(IEnumerable<GameVersion> versionsToMaintain)
         {
             if (!Directory.Exists(Settings.LibraryPath))
                 Directory.CreateDirectory(Settings.LibraryPath);
-
-            IEnumerable<GameVersion> versionsToCheck = inventoryUpdate.AddedVersions.Concat(inventoryUpdate.ChangedVersions).OrderBy(v => v.TimeOfUpload);
-
-            foreach (GameVersion gameVersion in versionsToCheck)
+            
+            foreach (GameVersion gameVersion in versionsToMaintain)
             {
                 string intendedPath = Path.Combine(Settings.LibraryPath, gameVersion.LibrarySubFolder);
 
                 if (Directory.Exists(intendedPath))
                     continue;
 
+                Directory.CreateDirectory(intendedPath);
+
                 GameVersion withMetadata = new GameVersion(gameVersion);
 
                 if (withMetadata.ServerDownloadUrl != null)
                 {
-                    string path = Path.Combine(intendedPath, "Server");
-
-                    Directory.CreateDirectory(path);
-
+                    string path = Path.Combine(intendedPath, "server.jar");
                     WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize);
                 }
 
                 if (withMetadata.ClientDownloadUrl != null)
                 {
-                    string path = Path.Combine(intendedPath, "Client");
-
-                    Directory.CreateDirectory(path);
-
+                    string path = Path.Combine(intendedPath, "client.jar");
                     WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize);
                 }
             }
@@ -99,7 +95,7 @@ namespace Librarian
         /// <param name="downloadsComplete"></param>
         private void TriggerActions(LauncherInventory.Diff inventoryUpdate, bool downloadsComplete)
         {
-            List<ConditionalAction> actionsToRun = new List<ConditionalAction>(_conditionalActions);
+            List<ConditionalAction> actionsToRun = new List<ConditionalAction>(Settings.ConditionalActions);
             List<int> completedIds = new List<int>();
 
             bool actionsPerformed;
@@ -112,7 +108,7 @@ namespace Librarian
                     if (!actionsToRun[i].ConditionsFulfilled(inventoryUpdate, completedIds, downloadsComplete))
                         continue;
 
-                    if (actionsToRun[i].ActionsPerformed(inventoryUpdate))
+                    if (actionsToRun[i].ActionsPerformed(inventoryUpdate, Settings.LibraryPath))
                     {
                         completedIds.Add(actionsToRun[i].Id);
                         actionsPerformed = true;

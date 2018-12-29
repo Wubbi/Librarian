@@ -10,7 +10,7 @@ namespace Librarian
         /// </summary>
         /// <param name="command"></param>
         /// <returns></returns>
-        private static int RunWaitCommand(string command)
+        public static int RunWaitCommand(string command)
         {
             bool useBash = Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX;
 

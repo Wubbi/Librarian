@@ -6,7 +6,7 @@ namespace Librarian
     /// <summary>
     /// Contains all known data about a specific version of game
     /// </summary>
-    public class GameVersion
+    public class GameVersion : IEquatable<GameVersion>
     {
         //### Primary data from version manifest ###
 
@@ -39,24 +39,29 @@ namespace Librarian
         //### Secondary data from the versions direct metadata ###
 
         /// <summary>
+        /// Whether or not the specific metadata for this version was loaded and parsed
+        /// </summary>
+        public bool MetadataWasLoaded { get; }
+
+        /// <summary>
         /// The url from which the client's .jar file can be downloaded
         /// </summary>
-        public string ClientDownloadUrl { get; private set; }
+        public string ClientDownloadUrl { get; }
 
         /// <summary>
         /// The size of the client's .jar file in bytes
         /// </summary>
-        public long ClientDownloadSize { get; private set; }
+        public long ClientDownloadSize { get; }
 
         /// <summary>
         /// The url from which the client's .jar file can be downloaded
         /// </summary>
-        public string ServerDownloadUrl { get; private set; }
+        public string ServerDownloadUrl { get; }
 
         /// <summary>
         /// The size of the server's .jar file in bytes
         /// </summary>
-        public long ServerDownloadSize { get; private set; }
+        public long ServerDownloadSize { get; }
 
 
         /// <summary>
@@ -95,14 +100,6 @@ namespace Librarian
             if (parseOnly)
                 return;
 
-            DownloadParseMetadata();
-        }
-
-        /// <summary>
-        /// Downloads the metadata according to <see cref="VersionMetadataUrl"/> and parses it's content
-        /// </summary>
-        public void DownloadParseMetadata()
-        {
             JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
 
             JToken downloads = metadata["downloads"];
@@ -122,6 +119,43 @@ namespace Librarian
                 if (long.TryParse(server["size"].ToString(), out long size))
                     ServerDownloadSize = size;
             }
+
+            MetadataWasLoaded = true;
+        }
+
+        /// <summary>
+        /// Creates a new instance of <see cref="GameVersion"/> with the primary values copied from <paramref name="other"/>, but with a fresh download of the metadata
+        /// </summary>
+        /// <param name="other">The <see cref="GameVersion"/> to copy primary data from</param>
+        public GameVersion(GameVersion other)
+        {
+            Id = other.Id;
+            Type = other.Type;
+            VersionMetadataUrl = other.VersionMetadataUrl;
+            TimeOfPublication = other.TimeOfPublication;
+            TimeOfUpload = other.TimeOfUpload;
+
+            JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
+
+            JToken downloads = metadata["downloads"];
+
+            JToken client = downloads["client"];
+            if (client != null)
+            {
+                ClientDownloadUrl = client["url"].ToString();
+                if (long.TryParse(client["size"].ToString(), out long size))
+                    ClientDownloadSize = size;
+            }
+
+            JToken server = downloads["server"];
+            if (server != null)
+            {
+                ServerDownloadUrl = server["url"].ToString();
+                if (long.TryParse(server["size"].ToString(), out long size))
+                    ServerDownloadSize = size;
+            }
+
+            MetadataWasLoaded = true;
         }
 
         /// <summary>
@@ -134,6 +168,38 @@ namespace Librarian
             Snapshot = 2,
             LegacyAlpha = 3,
             LegacyBeta = 4
+        }
+
+        public bool Equals(GameVersion other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl) && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload) && string.Equals(ClientDownloadUrl, other.ClientDownloadUrl) && ClientDownloadSize == other.ClientDownloadSize && string.Equals(ServerDownloadUrl, other.ServerDownloadUrl) && ServerDownloadSize == other.ServerDownloadSize;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((GameVersion)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hashCode = (Id != null ? Id.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (int)Type;
+                hashCode = (hashCode * 397) ^ (VersionMetadataUrl != null ? VersionMetadataUrl.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ TimeOfPublication.GetHashCode();
+                hashCode = (hashCode * 397) ^ TimeOfUpload.GetHashCode();
+                hashCode = (hashCode * 397) ^ (ClientDownloadUrl != null ? ClientDownloadUrl.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ ClientDownloadSize.GetHashCode();
+                hashCode = (hashCode * 397) ^ (ServerDownloadUrl != null ? ServerDownloadUrl.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ ServerDownloadSize.GetHashCode();
+                return hashCode;
+            }
         }
     }
 }

@@ -165,7 +165,12 @@ namespace Librarian
                     versionsToProcess.AddRange(inventoryUpdate.RemovedVersions.Where(v => v.Type == _type));
             }
 
-            return versionsToProcess.OrderBy(v => v.TimeOfUpload).All(v => RunCommandsOnVersion(v, libraryRootPath));
+            bool allSucceeded = true;
+            foreach (GameVersion gameVersion in versionsToProcess.OrderBy(v => v.TimeOfUpload))
+                if (!RunCommandsOnVersion(gameVersion, libraryRootPath))
+                    allSucceeded = false;
+
+            return allSucceeded;
         }
 
         /// <summary>
@@ -188,8 +193,15 @@ namespace Librarian
                 if (_paramPath != null)
                     command = command.Replace(_paramPath, Path.Combine(libraryRootPath, version.LibrarySubFolder));
 
-                if (CommandExecution.RunWaitCommand(command) < 0)
-                    allCommandsSuccessful = false;
+                Logger.Info("Executing command: " + command);
+
+                int exitCode = CommandExecution.RunWaitCommand(command);
+
+                if (exitCode >= 0)
+                    continue;
+
+                Logger.Error("Exit code " + exitCode);
+                allCommandsSuccessful = false;
             }
 
             return allCommandsSuccessful;

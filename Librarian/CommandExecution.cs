@@ -36,6 +36,7 @@ namespace Librarian
             catch (Exception e)
             {
                 e.Data["Command"] = command;
+                e.Data["Bash"] = useBash;
                 Logger.Exception(e);
                 return -1;
             }

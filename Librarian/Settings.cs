@@ -37,7 +37,10 @@ namespace Librarian
             JObject settings = JObject.Parse(json);
 
             ManifestRefreshRate = settings["refreshRate"]?.Value<int>() ?? 29;
-            LibraryPath = settings["libraryPath"]?.Value<string>() ?? Path.Combine(Environment.CurrentDirectory, "Library");
+            LibraryPath = settings["libraryPath"]?.Value<string>();
+            if (string.IsNullOrWhiteSpace(LibraryPath))
+                LibraryPath = Path.Combine(Environment.CurrentDirectory, "Library");
+
             ProcessMissedUpdates = settings["addMissingVersions"]?.Value<bool>() ?? false;
 
             JToken tasks = settings["tasks"];

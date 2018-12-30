@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace Librarian
 {
@@ -44,7 +45,7 @@ namespace Librarian
 
             _manifestWatcher.ChangeInLauncherManifest += diff => _launcherManifestUpdates.Add(diff);
 
-            Logger.Info("Librarian initialized");
+            Logger.Info($"Librarian {Assembly.GetExecutingAssembly().GetName().Version} initialized");
         }
 
         /// <summary>
@@ -68,19 +69,23 @@ namespace Librarian
                 TriggerActions(update, false);
                 MaintainLibrary(update.AddedVersions.Concat(update.ChangedVersions).OrderBy(v => v.TimeOfUpload));
                 TriggerActions(update, true);
-                Logger.Info("Update processed");
+                Logger.Info("Update of manifest processed");
             }
         }
 
         private void MaintainLibrary(IEnumerable<GameVersion> versionsToMaintain)
         {
             Logger.Info("Updating library");
+
+            bool updatesWereNeeded = false;
             foreach (GameVersion gameVersion in versionsToMaintain)
             {
                 string intendedPath = Path.Combine(Settings.LibraryPath, gameVersion.LibrarySubFolder);
 
                 if (Directory.Exists(intendedPath))
                     continue;
+
+                updatesWereNeeded = true;
 
                 Logger.Info("Adding missing version " + gameVersion.Id);
 
@@ -92,7 +97,7 @@ namespace Librarian
                 {
                     if (withMetadata.ServerDownloadUrl != null)
                     {
-                        Logger.Info("Downloading server.jar");
+                        Logger.Info($"Downloading server.jar ({withMetadata.ServerDownloadSize / 1024 / 1024} MB)");
                         string path = Path.Combine(intendedPath, "server.jar");
                         WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize);
                         Logger.Info("Download complete");
@@ -100,7 +105,7 @@ namespace Librarian
 
                     if (withMetadata.ClientDownloadUrl != null)
                     {
-                        Logger.Info("Downloading client.jar");
+                        Logger.Info($"Downloading client.jar ({withMetadata.ClientDownloadSize / 1024 / 1024} MB)");
                         string path = Path.Combine(intendedPath, "client.jar");
                         WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize);
                         Logger.Info("Download complete");
@@ -114,7 +119,11 @@ namespace Librarian
 
                 Logger.Info($"Added {gameVersion.Type} version {gameVersion.Id}");
             }
-            Logger.Info("Update of library complete");
+
+            if (updatesWereNeeded)
+                Logger.Info("Update of library complete");
+            else
+                Logger.Info("No updates to the library were required");
         }
 
         /// <summary>

@@ -5,6 +5,11 @@ where it will frequently query the Mojang servers to see if any new versions of 
 If so, it will donwload the main game files and optionally execute commands in your systems shell
 to trigger further actions, like sending a message.
 
+**This project uses .NET Core 2.1**
+
+To use the binaries make sure you have at least the [Runtime](https://dotnet.microsoft.com/download) installed.  
+Afterwards you can start the program with `dotnet RunLibrarian.dll`.
+
 ## Settings
 
 To configure Librarian you can use a textfile containing the required settings in JSON format.

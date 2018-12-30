@@ -7,7 +7,7 @@ to trigger further actions, like sending a message.
 
 **This project uses .NET Core 2.1**
 
-To use the binaries make sure you have at least the [Runtime](https://dotnet.microsoft.com/download) installed.  
+To use the [binaries](https://github.com/Wubbi/Librarian/releases) make sure you have at least the [Runtime](https://dotnet.microsoft.com/download) installed.  
 Afterwards you can start the program with `dotnet RunLibrarian.dll`.
 
 ## Settings

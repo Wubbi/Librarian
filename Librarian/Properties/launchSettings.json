@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Librarian": {
+      "commandName": "Project",
+      "commandLineArgs": "-s \"../../../../settings.json\""
+    }
+  }
+}

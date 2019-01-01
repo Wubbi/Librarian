@@ -58,7 +58,7 @@ namespace com.github.Wubbi.Librarian
             if (Settings.ProcessMissedUpdates)
             {
                 Logger.Info("Processing missing versions");
-                MaintainLibrary(_manifestWatcher.CurrentInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload));
+                UpdateLibrary(_manifestWatcher.CurrentInventory);
             }
 
             _manifestWatcher.Start(TimeSpan.FromSeconds(Settings.ManifestRefreshRate));
@@ -67,63 +67,126 @@ namespace com.github.Wubbi.Librarian
             {
                 Logger.Info("Processing update of manifest");
                 TriggerActions(update, false);
-                MaintainLibrary(update.AddedVersions.Concat(update.ChangedVersions).OrderBy(v => v.TimeOfUpload));
+                UpdateLibrary(update.NewInventory);
                 TriggerActions(update, true);
                 Logger.Info("Update of manifest processed");
             }
         }
 
-        private void MaintainLibrary(IEnumerable<GameVersion> versionsToMaintain)
+        /// <summary>
+        /// Updates the Library and returns a list of versions that got added
+        /// </summary>
+        /// <param name="launcherInventory">The inventory the library should update to, or null to reference the latest stored inventory</param>
+        /// <returns></returns>
+        private List<GameVersionExtended> UpdateLibrary(LauncherInventory launcherInventory = null)
         {
             Logger.Info("Updating library");
 
-            bool updatesWereNeeded = false;
-            foreach (GameVersion gameVersion in versionsToMaintain)
+            string manifestFolder = Path.Combine(Settings.LibraryPath, "Manifests");
+
+            LauncherInventory latestStoredManifest = null;
+            if (Directory.Exists(manifestFolder))
             {
-                string intendedPath = Path.Combine(Settings.LibraryPath, gameVersion.LibrarySubFolder);
+                string latestManifestFile = Directory.EnumerateFiles(manifestFolder, "*.json").OrderByDescending(Path.GetFileName).FirstOrDefault();
 
-                if (Directory.Exists(intendedPath))
-                    continue;
-
-                updatesWereNeeded = true;
-
-                Logger.Info("Adding missing version " + gameVersion.Id);
-
-                Directory.CreateDirectory(intendedPath);
-
-                GameVersionExtended withMetadata = new GameVersionExtended(gameVersion);
-
-                try
-                {
-                    if (withMetadata.ServerDownloadUrl != null)
-                    {
-                        Logger.Info($"Downloading server.jar ({withMetadata.ServerDownloadSize / 1024 / 1024} MB)");
-                        string path = Path.Combine(intendedPath, "server.jar");
-                        WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize, withMetadata.ServerDownloadSha1);
-                        Logger.Info("Download complete");
-                    }
-
-                    if (withMetadata.ClientDownloadUrl != null)
-                    {
-                        Logger.Info($"Downloading client.jar ({withMetadata.ClientDownloadSize / 1024 / 1024} MB)");
-                        string path = Path.Combine(intendedPath, "client.jar");
-                        WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize, withMetadata.ClientDownloadSha1);
-                        Logger.Info("Download complete");
-                    }
-                }
-                catch (Exception e)
-                {
-                    e.Data["Path"] = intendedPath;
-                    Logger.Exception(e);
-                }
-
-                Logger.Info($"Added {gameVersion.Type} version {gameVersion.Id}");
+                if (latestManifestFile != null)
+                    latestStoredManifest = new LauncherInventory(File.ReadAllText(latestManifestFile));
             }
 
-            if (updatesWereNeeded)
-                Logger.Info("Update of library complete");
-            else
-                Logger.Info("No updates to the library were required");
+            if (launcherInventory == null && latestStoredManifest == null)
+            {
+                Logger.Info("No manifest found to update");
+                return new List<GameVersionExtended>();
+            }
+
+            if (launcherInventory == null)
+            {
+                Logger.Info("Loading latest stored manifest");
+                launcherInventory = latestStoredManifest;
+            }
+            else if (!launcherInventory.Equals(latestStoredManifest))
+            {
+                if (!Directory.Exists(manifestFolder))
+                    Directory.CreateDirectory(manifestFolder);
+
+                string manifestName = DateTime.Now.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss_UTC") + ".json";
+
+                File.WriteAllText(Path.Combine(manifestFolder, manifestName), launcherInventory.Manifest);
+                Logger.Info("Added new manifest");
+            }
+
+            IEnumerable<GameVersionExtended> missingVersions = launcherInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload)
+                .Where(v => !File.Exists(Path.Combine(Settings.LibraryPath, v.LibrarySubFolder, v.Id + ".json")))
+                .Select(v => new GameVersionExtended(v));
+
+            List<GameVersionExtended> addedVersions = new List<GameVersionExtended>();
+
+            foreach (GameVersionExtended version in missingVersions)
+            {
+                Logger.Info($"Updating {version.Type} {version.Id}");
+
+                string versionRootPath = Path.Combine(Settings.LibraryPath, version.LibrarySubFolder);
+
+                if (!Directory.Exists(versionRootPath))
+                    Directory.CreateDirectory(versionRootPath);
+
+                File.WriteAllText(Path.Combine(versionRootPath, version.Id + ".json"), version.MetaData);
+
+                if (version.ServerDownloadUrl != null)
+                {
+                    string path = Path.Combine(versionRootPath, "server.jar");
+                    try
+                    {
+                        Logger.Info($"Downloading server.jar ({version.ServerDownloadSize / 1024.0 / 1024.0:F2} MB)");
+                        WebAccess.DownloadAndStoreFile(version.ServerDownloadUrl, path, version.ServerDownloadSize, version.ServerDownloadSha1);
+                        Logger.Info("Download of server.jar complete");
+                    }
+                    catch (Exception e)
+                    {
+                        e.Data["File"] = path;
+                        Logger.Error("Error while downloading server.jar");
+                        Logger.Exception(e);
+                    }
+                }
+
+                if (version.ClientDownloadUrl != null)
+                {
+                    string path = Path.Combine(versionRootPath, "client.jar");
+                    try
+                    {
+                        Logger.Info($"Downloading client.jar ({version.ClientDownloadSize / 1024.0 / 1024.0:F2} MB)");
+                        WebAccess.DownloadAndStoreFile(version.ClientDownloadUrl, path, version.ClientDownloadSize, version.ClientDownloadSha1);
+                        Logger.Info("Download of client.jar complete");
+                    }
+                    catch (Exception e)
+                    {
+                        e.Data["File"] = path;
+                        Logger.Error("Error while downloading client.jar");
+                        Logger.Exception(e);
+                    }
+                }
+
+                addedVersions.Add(version);
+
+                Logger.Info($"Update of {version.Type} {version.Id} complete");
+            }
+
+            switch (addedVersions.Count)
+            {
+                case 0:
+                    Logger.Info("No updates were required");
+                    break;
+                case 1:
+                    Logger.Info("Added 1 missing version");
+                    break;
+                default:
+                    Logger.Info($"Added {addedVersions.Count} missing versions");
+                    break;
+            }
+
+            Logger.Info("Library is up to date");
+
+            return addedVersions;
         }
 
         /// <summary>

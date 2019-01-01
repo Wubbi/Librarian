@@ -81,31 +81,6 @@ namespace LibrarianTests
         }
 
         [Test]
-        public void TestLauncherInventoryLoad()
-        {
-            LauncherInventory launcherInventory = new LauncherInventory();
-
-            Assert.NotNull(launcherInventory.LatestReleaseId);
-            Assert.NotNull(launcherInventory.LatestSnapshotId);
-            Assert.True(launcherInventory.AvailableVersions.Count > 0);
-        }
-
-        [Test]
-        public void TestWatcherBaseFunctions()
-        {
-            ManifestWatcher watcher = new ManifestWatcher(null);
-            Assert.NotNull(watcher.CurrentInventory);
-            Thread.Sleep(1000);
-            watcher.Start(TimeSpan.FromHours(1));
-            Thread.Sleep(1000);
-            watcher.Start(TimeSpan.FromHours(2));
-            Thread.Sleep(1000);
-            watcher.Stop();
-            watcher.Dispose();
-            Assert.Throws<ObjectDisposedException>(() => watcher.Start(TimeSpan.FromDays(1)));
-        }
-
-        [Test]
         public void TestSettingsParsing()
         {
             const string json = @"{
@@ -159,6 +134,35 @@ namespace LibrarianTests
             Assert.AreEqual("G:/Library", settings.LibraryPath);
             Assert.AreEqual(false, settings.ProcessMissedUpdates);
             Assert.AreEqual(2, settings.ConditionalActions.Count);
+        }
+
+        [Test]
+        public void TestLauncherInventoryLoad()
+        {
+            LauncherInventory launcherInventory = new LauncherInventory();
+
+            Assert.NotNull(launcherInventory.LatestReleaseId);
+            Assert.NotNull(launcherInventory.LatestSnapshotId);
+            Assert.True(launcherInventory.AvailableVersions.Count > 0);
+        }
+
+        [Test]
+        public void TestWatcherBaseFunctions()
+        {
+            LauncherInventory launcherInventory = new LauncherInventory(@"{""latest"": {""release"": ""1.13.2"", ""snapshot"": ""18w50a""}, ""versions"": [{""id"": ""18w50a"", ""type"": ""snapshot"", ""url"": ""https://launchermeta.mojang.com/v1/packages/bb3dedc8edfa074b4d5a6a483ff073801dde6479/18w50a.json"", ""time"": ""2018-12-12T15:58:33+00:00"", ""releaseTime"": ""2018-12-12T14:58:13+00:00""}]}");
+            ManifestWatcher watcher = new ManifestWatcher(launcherInventory);
+
+            bool update = false;
+            watcher.ChangeInLauncherManifest += diff => update = true;
+
+            Thread.Sleep(1000);
+            Assert.AreEqual(launcherInventory, watcher.CurrentInventory);
+
+            watcher.Start(TimeSpan.FromSeconds(30));
+            Thread.Sleep(5000);
+
+            Assert.IsTrue(update);
+            Assert.AreNotEqual(launcherInventory, watcher.CurrentInventory);
         }
     }
 }

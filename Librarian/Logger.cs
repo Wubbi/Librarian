@@ -46,6 +46,11 @@ namespace com.github.Wubbi.Librarian
             Log($"[INFO] {message}");
         }
 
+        public static void Warning(string message)
+        {
+            Log($"[Warning] {message}");
+        }
+
         public static void Error(string errorMessage)
         {
             Log($"[ERROR] {errorMessage}");

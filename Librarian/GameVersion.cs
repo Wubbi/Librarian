@@ -55,10 +55,10 @@ namespace com.github.Wubbi.Librarian
         /// <summary>
         /// Creates a new <see cref="GameVersion"/> object by first parsing the given json snippet from the launchers version manifest
         /// </summary>
-        /// <param name="launcherJson">The entry in the versions array of the wanted version in the launcher manifest</param>
-        public GameVersion(string launcherJson)
+        /// <param name="launcherManifestSnippet">The entry in the versions array of the wanted version in the launcher manifest</param>
+        public GameVersion(string launcherManifestSnippet)
         {
-            JObject manifestSnippet = JObject.Parse(launcherJson);
+            JObject manifestSnippet = JObject.Parse(launcherManifestSnippet);
 
             Id = manifestSnippet["id"].Value<string>();
 
@@ -80,10 +80,10 @@ namespace com.github.Wubbi.Librarian
 
             VersionMetadataUrl = manifestSnippet["url"].Value<string>();
 
-            TimeOfPublication =manifestSnippet["time"].Value<DateTime>();
+            TimeOfPublication = manifestSnippet["time"].Value<DateTime>();
             TimeOfUpload = manifestSnippet["releaseTime"].Value<DateTime>();
 
-            LibrarySubFolder = Path.Combine(Type.ToString(), Id, TimeOfUpload.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss"));
+            LibrarySubFolder = Path.Combine(Type.ToString(), Id, TimeOfUpload.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss_UTC"));
         }
 
         /// <summary>
@@ -136,6 +136,11 @@ namespace com.github.Wubbi.Librarian
     public class GameVersionExtended : GameVersion
     {
         /// <summary>
+        /// The JSON formatted data containing all relevant information for this specific version
+        /// </summary>
+        public string MetaData { get; }
+
+        /// <summary>
         /// The url from which the client's .jar file can be downloaded or null if no client download is available
         /// </summary>
         public string ClientDownloadUrl { get; }
@@ -170,9 +175,11 @@ namespace com.github.Wubbi.Librarian
         /// </summary>
         public GameVersionExtended(GameVersion basis) : base(basis)
         {
-            JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
+            MetaData = WebAccess.DownloadFileAsString(VersionMetadataUrl);
 
-            JToken downloads = metadata["downloads"];
+            JObject metaData = JObject.Parse(MetaData);
+
+            JToken downloads = metaData["downloads"];
 
             JToken client = downloads["client"];
             if (client != null)
@@ -180,6 +187,9 @@ namespace com.github.Wubbi.Librarian
                 ClientDownloadUrl = client["url"].Value<string>();
                 ClientDownloadSize = client["size"].Value<long>();
                 ClientDownloadSha1 = client["sha1"].Value<string>();
+
+                if (!ClientDownloadUrl.EndsWith(ClientDownloadSha1 + "/client.jar"))
+                    Logger.Warning($"Client download for version {Id} has unexpected url");
             }
 
             JToken server = downloads["server"];
@@ -188,6 +198,9 @@ namespace com.github.Wubbi.Librarian
                 ServerDownloadUrl = server["url"].Value<string>();
                 ServerDownloadSize = server["size"].Value<long>();
                 ServerDownloadSha1 = server["sha1"].Value<string>();
+
+                if (!ServerDownloadUrl.EndsWith(ServerDownloadSha1 + "/server.jar"))
+                    Logger.Warning($"Server download for version {Id} has unexpected url");
             }
         }
 

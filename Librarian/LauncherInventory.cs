@@ -17,7 +17,7 @@ namespace com.github.Wubbi.Librarian
         public const string VersionInfoLocation = @"https://launchermeta.mojang.com/mc/game/version_manifest.json";
 
         /// <summary>
-        /// The json file that this <see cref="LauncherInventory"/> was parsed from
+        /// The json data that this <see cref="LauncherInventory"/> was parsed from
         /// </summary>
         public string Manifest { get; }
 
@@ -63,8 +63,6 @@ namespace com.github.Wubbi.Librarian
             if (!string.Equals(LatestReleaseId, other.LatestReleaseId) || !string.Equals(LatestSnapshotId, other.LatestSnapshotId)
                 || AvailableVersions.Count != other.AvailableVersions.Count) return false;
 
-            //We don't care about the raw manifest, only the values generated from it!
-
             return AvailableVersions.SequenceEqual(other.AvailableVersions);
         }
 
@@ -82,8 +80,6 @@ namespace com.github.Wubbi.Librarian
             {
                 int hashCode = LatestReleaseId != null ? LatestReleaseId.GetHashCode() : 0;
                 hashCode = (hashCode * 397) ^ (LatestSnapshotId != null ? LatestSnapshotId.GetHashCode() : 0);
-
-                //We don't care about the raw manifest, only the values generated from it!
 
                 return AvailableVersions.Aggregate(hashCode, (current, availableVersion) => (current * 397) ^ availableVersion.GetHashCode());
             }

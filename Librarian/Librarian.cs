@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace Librarian
+namespace com.github.Wubbi.Librarian
 {
     /// <summary>
     /// Triggers events and maintains the library
@@ -41,7 +41,7 @@ namespace Librarian
 
             _launcherManifestUpdates = new BlockingCollection<LauncherInventory.Diff>();
 
-            _manifestWatcher = new ManifestWatcher();
+            _manifestWatcher = new ManifestWatcher(null);
 
             _manifestWatcher.ChangeInLauncherManifest += diff => _launcherManifestUpdates.Add(diff);
 
@@ -91,7 +91,7 @@ namespace Librarian
 
                 Directory.CreateDirectory(intendedPath);
 
-                GameVersion withMetadata = new GameVersion(gameVersion);
+                GameVersionExtended withMetadata = new GameVersionExtended(gameVersion);
 
                 try
                 {
@@ -99,7 +99,7 @@ namespace Librarian
                     {
                         Logger.Info($"Downloading server.jar ({withMetadata.ServerDownloadSize / 1024 / 1024} MB)");
                         string path = Path.Combine(intendedPath, "server.jar");
-                        WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize);
+                        WebAccess.DownloadAndStoreFile(withMetadata.ServerDownloadUrl, path, withMetadata.ServerDownloadSize, withMetadata.ServerDownloadSha1);
                         Logger.Info("Download complete");
                     }
 
@@ -107,7 +107,7 @@ namespace Librarian
                     {
                         Logger.Info($"Downloading client.jar ({withMetadata.ClientDownloadSize / 1024 / 1024} MB)");
                         string path = Path.Combine(intendedPath, "client.jar");
-                        WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize);
+                        WebAccess.DownloadAndStoreFile(withMetadata.ClientDownloadUrl, path, withMetadata.ClientDownloadSize, withMetadata.ClientDownloadSha1);
                         Logger.Info("Download complete");
                     }
                 }

@@ -2,14 +2,24 @@
 using System.IO;
 using Newtonsoft.Json.Linq;
 
-namespace Librarian
+namespace com.github.Wubbi.Librarian
 {
     /// <summary>
-    /// Contains all known data about a specific version of game
+    /// Contains basic data about a specific version of game
     /// </summary>
     public class GameVersion : IEquatable<GameVersion>
     {
-        //### Primary data from version manifest ###
+        /// <summary>
+        /// The build type (release or snapshot)
+        /// </summary>
+        public enum BuildType
+        {
+            Unknown = 0,
+            Release = 1,
+            Snapshot = 2,
+            Alpha = 3,
+            Beta = 4
+        }
 
         /// <summary>
         /// The "name" of this version
@@ -42,46 +52,17 @@ namespace Librarian
         public string LibrarySubFolder { get; }
 
 
-        //### Secondary data from the versions direct metadata ###
-
-        /// <summary>
-        /// Whether or not the specific metadata for this version was loaded and parsed
-        /// </summary>
-        public bool MetadataWasLoaded { get; }
-
-        /// <summary>
-        /// The url from which the client's .jar file can be downloaded or null if no client download is available
-        /// </summary>
-        public string ClientDownloadUrl { get; }
-
-        /// <summary>
-        /// The size of the client's .jar file in bytes
-        /// </summary>
-        public long ClientDownloadSize { get; }
-
-        /// <summary>
-        /// The url from which the client's .jar file can be downloaded or null if no server download is available
-        /// </summary>
-        public string ServerDownloadUrl { get; }
-
-        /// <summary>
-        /// The size of the server's .jar file in bytes
-        /// </summary>
-        public long ServerDownloadSize { get; }
-
         /// <summary>
         /// Creates a new <see cref="GameVersion"/> object by first parsing the given json snippet from the launchers version manifest
-        /// followed by downloading the appropriate metadata for this version
         /// </summary>
         /// <param name="launcherJson">The entry in the versions array of the wanted version in the launcher manifest</param>
-        /// <param name="parseOnly">If set to true no metadata will be downloaded and only the given string is parsed</param>
-        public GameVersion(string launcherJson, bool parseOnly = false)
+        public GameVersion(string launcherJson)
         {
             JObject manifestSnippet = JObject.Parse(launcherJson);
 
-            Id = manifestSnippet["id"].ToString();
+            Id = manifestSnippet["id"].Value<string>();
 
-            switch (manifestSnippet["type"].ToString())
+            switch (manifestSnippet["type"].Value<string>())
             {
                 case "release":
                     Type = BuildType.Release;
@@ -97,44 +78,19 @@ namespace Librarian
                     break;
             }
 
-            VersionMetadataUrl = manifestSnippet["url"].ToString();
+            VersionMetadataUrl = manifestSnippet["url"].Value<string>();
 
-            TimeOfPublication = DateTime.Parse(manifestSnippet["time"].ToString());
-            TimeOfUpload = DateTime.Parse(manifestSnippet["releaseTime"].ToString());
+            TimeOfPublication =manifestSnippet["time"].Value<DateTime>();
+            TimeOfUpload = manifestSnippet["releaseTime"].Value<DateTime>();
 
             LibrarySubFolder = Path.Combine(Type.ToString(), Id, TimeOfUpload.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss"));
-
-            if (parseOnly)
-                return;
-
-            JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
-
-            JToken downloads = metadata["downloads"];
-
-            JToken client = downloads["client"];
-            if (client != null)
-            {
-                ClientDownloadUrl = client["url"].ToString();
-                if (long.TryParse(client["size"].ToString(), out long size))
-                    ClientDownloadSize = size;
-            }
-
-            JToken server = downloads["server"];
-            if (server != null)
-            {
-                ServerDownloadUrl = server["url"].ToString();
-                if (long.TryParse(server["size"].ToString(), out long size))
-                    ServerDownloadSize = size;
-            }
-
-            MetadataWasLoaded = true;
         }
 
         /// <summary>
-        /// Creates a new instance of <see cref="GameVersion"/> with the primary values copied from <paramref name="other"/>, but with a fresh download of the metadata
+        /// Creates a copy of the given <see cref="GameVersion"/>
         /// </summary>
-        /// <param name="other">The <see cref="GameVersion"/> to copy primary data from</param>
-        public GameVersion(GameVersion other)
+        /// <param name="other">The <see cref="GameVersion"/> to copy</param>
+        protected GameVersion(GameVersion other)
         {
             Id = other.Id;
             Type = other.Type;
@@ -142,40 +98,6 @@ namespace Librarian
             TimeOfPublication = other.TimeOfPublication;
             TimeOfUpload = other.TimeOfUpload;
             LibrarySubFolder = other.LibrarySubFolder;
-
-            JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
-
-            JToken downloads = metadata["downloads"];
-
-            JToken client = downloads["client"];
-            if (client != null)
-            {
-                ClientDownloadUrl = client["url"].ToString();
-                if (long.TryParse(client["size"].ToString(), out long size))
-                    ClientDownloadSize = size;
-            }
-
-            JToken server = downloads["server"];
-            if (server != null)
-            {
-                ServerDownloadUrl = server["url"].ToString();
-                if (long.TryParse(server["size"].ToString(), out long size))
-                    ServerDownloadSize = size;
-            }
-
-            MetadataWasLoaded = true;
-        }
-
-        /// <summary>
-        /// The build type (release or snapshot)
-        /// </summary>
-        public enum BuildType
-        {
-            Unknown = 0,
-            Release = 1,
-            Snapshot = 2,
-            Alpha = 3,
-            Beta = 4
         }
 
         public bool Equals(GameVersion other)
@@ -183,10 +105,7 @@ namespace Librarian
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl)
-                   && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload)
-                   && MetadataWasLoaded == other.MetadataWasLoaded
-                   && string.Equals(ClientDownloadUrl, other.ClientDownloadUrl) && ClientDownloadSize == other.ClientDownloadSize
-                   && string.Equals(ServerDownloadUrl, other.ServerDownloadUrl) && ServerDownloadSize == other.ServerDownloadSize;
+                   && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload);
         }
 
         public override bool Equals(object obj)
@@ -201,16 +120,105 @@ namespace Librarian
         {
             unchecked
             {
-                int hashCode = (Id != null ? Id.GetHashCode() : 0);
+                int hashCode = Id != null ? Id.GetHashCode() : 0;
                 hashCode = (hashCode * 397) ^ (int)Type;
                 hashCode = (hashCode * 397) ^ (VersionMetadataUrl != null ? VersionMetadataUrl.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ TimeOfPublication.GetHashCode();
                 hashCode = (hashCode * 397) ^ TimeOfUpload.GetHashCode();
-                hashCode = (hashCode * 397) ^ MetadataWasLoaded.GetHashCode();
-                hashCode = (hashCode * 397) ^ (ClientDownloadUrl != null ? ClientDownloadUrl.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ ClientDownloadSize.GetHashCode();
+                return hashCode;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Contains more detailed data about a specific version of the game
+    /// </summary>
+    public class GameVersionExtended : GameVersion
+    {
+        /// <summary>
+        /// The url from which the client's .jar file can be downloaded or null if no client download is available
+        /// </summary>
+        public string ClientDownloadUrl { get; }
+
+        /// <summary>
+        /// The size of the client's .jar file in bytes
+        /// </summary>
+        public long ClientDownloadSize { get; }
+
+        /// <summary>
+        /// The clients .jar SHA1 hash
+        /// </summary>
+        public string ClientDownloadSha1 { get; }
+
+        /// <summary>
+        /// The url from which the client's .jar file can be downloaded or null if no server download is available
+        /// </summary>
+        public string ServerDownloadUrl { get; }
+
+        /// <summary>
+        /// The size of the server's .jar file in bytes
+        /// </summary>
+        public long ServerDownloadSize { get; }
+
+        /// <summary>
+        /// The servers .jar SHA1 hash
+        /// </summary>
+        public string ServerDownloadSha1 { get; }
+
+        /// <summary>
+        /// Creates a new <see cref="GameVersionExtended"/> by downloading the required data according to an existing <see cref="GameVersion"/>
+        /// </summary>
+        public GameVersionExtended(GameVersion basis) : base(basis)
+        {
+            JObject metadata = JObject.Parse(WebAccess.DownloadFileAsString(VersionMetadataUrl));
+
+            JToken downloads = metadata["downloads"];
+
+            JToken client = downloads["client"];
+            if (client != null)
+            {
+                ClientDownloadUrl = client["url"].Value<string>();
+                ClientDownloadSize = client["size"].Value<long>();
+                ClientDownloadSha1 = client["sha1"].Value<string>();
+            }
+
+            JToken server = downloads["server"];
+            if (server != null)
+            {
+                ServerDownloadUrl = server["url"].Value<string>();
+                ServerDownloadSize = server["size"].Value<long>();
+                ServerDownloadSha1 = server["sha1"].Value<string>();
+            }
+        }
+
+        public bool Equals(GameVersionExtended other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return base.Equals(other)
+                   && string.Equals(ClientDownloadUrl, other.ClientDownloadUrl) && string.Equals(ServerDownloadUrl, other.ServerDownloadUrl)
+                   && ClientDownloadSize == other.ClientDownloadSize && ServerDownloadSize == other.ServerDownloadSize
+                   && string.Equals(ClientDownloadSha1, other.ClientDownloadSha1) && string.Equals(ServerDownloadSha1, other.ServerDownloadSha1);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is null) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((GameVersionExtended)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hashCode = ClientDownloadUrl != null ? ClientDownloadUrl.GetHashCode() : 0;
+                hashCode = (hashCode * 397) ^ (int)ClientDownloadSize;
+                hashCode = (hashCode * 397) ^ (ClientDownloadSha1 != null ? ClientDownloadSha1.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (ServerDownloadUrl != null ? ServerDownloadUrl.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ ServerDownloadSize.GetHashCode();
+                hashCode = (hashCode * 397) ^ (int)ServerDownloadSize;
+                hashCode = (hashCode * 397) ^ (ServerDownloadSha1 != null ? ServerDownloadSha1.GetHashCode() : 0);
                 return hashCode;
             }
         }

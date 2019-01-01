@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 
-namespace Librarian
+namespace com.github.Wubbi.Librarian
 {
     /// <summary>
     /// Stores all the settings made with the settings file

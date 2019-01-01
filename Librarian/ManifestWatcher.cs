@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading;
 
-namespace Librarian
+namespace com.github.Wubbi.Librarian
 {
     /// <summary>
     /// Continuously reads the launcher data and triggers events
@@ -26,9 +26,10 @@ namespace Librarian
         /// <summary>
         /// Creates a new <see cref="ManifestWatcher"/> that performs regular comparisons of the current manifest file with the known one
         /// </summary>
-        public ManifestWatcher()
+        /// <param name="initialComparison">The <see cref="LauncherInventory"/> comparisons are made with initially or null to download the live version</param>
+        public ManifestWatcher(LauncherInventory initialComparison)
         {
-            CurrentInventory = new LauncherInventory();
+            CurrentInventory = initialComparison ?? new LauncherInventory();
 
             _timer = new Timer(CheckLauncherManifest, null, TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(-1));
         }

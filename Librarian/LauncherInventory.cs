@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 
-namespace Librarian
+namespace com.github.Wubbi.Librarian
 {
     /// <summary>
     /// The data currently accessible through the launcher
@@ -17,6 +15,11 @@ namespace Librarian
         /// The location of the launchers json file to look up the currently available versions
         /// </summary>
         public const string VersionInfoLocation = @"https://launchermeta.mojang.com/mc/game/version_manifest.json";
+
+        /// <summary>
+        /// The json file that this <see cref="LauncherInventory"/> was parsed from
+        /// </summary>
+        public string Manifest { get; }
 
         /// <summary>
         /// The id of the newest version with type release
@@ -34,18 +37,22 @@ namespace Librarian
         public ReadOnlyCollection<GameVersion> AvailableVersions { get; }
 
         /// <summary>
-        /// Creates a new <see cref="LauncherInventory"/> by reading and parsing the current launcher version manifest
+        /// Creates a new <see cref="LauncherInventory"/> based on the given manifest or by downloading and parsing the online manifest
         /// </summary>
-        public LauncherInventory()
+        /// <param name="manifestJson">A manifest in json format, or null to download the live one</param>
+        public LauncherInventory(string manifestJson = null)
         {
-            string rawJson = WebAccess.DownloadFileAsString(VersionInfoLocation);
+            if (manifestJson == null)
+                manifestJson = WebAccess.DownloadFileAsString(VersionInfoLocation);
 
-            JObject manifest = JObject.Parse(rawJson);
+            Manifest = manifestJson;
+
+            JObject manifest = JObject.Parse(manifestJson);
 
             LatestReleaseId = manifest["latest"]["release"].ToString();
             LatestSnapshotId = manifest["latest"]["snapshot"].ToString();
 
-            List<GameVersion> gameVersions = manifest["versions"].Select(v => new GameVersion(v.ToString(), true)).ToList();
+            List<GameVersion> gameVersions = manifest["versions"].Select(v => new GameVersion(v.ToString())).ToList();
             AvailableVersions = new ReadOnlyCollection<GameVersion>(gameVersions);
         }
 
@@ -53,8 +60,10 @@ namespace Librarian
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
-            if (!string.Equals(LatestReleaseId, other.LatestReleaseId) || !string.Equals(LatestSnapshotId, other.LatestSnapshotId) || AvailableVersions.Count != other.AvailableVersions.Count)
-                return false;
+            if (!string.Equals(LatestReleaseId, other.LatestReleaseId) || !string.Equals(LatestSnapshotId, other.LatestSnapshotId)
+                || AvailableVersions.Count != other.AvailableVersions.Count) return false;
+
+            //We don't care about the raw manifest, only the values generated from it!
 
             return AvailableVersions.SequenceEqual(other.AvailableVersions);
         }
@@ -71,8 +80,11 @@ namespace Librarian
         {
             unchecked
             {
-                int hashCode = (LatestReleaseId != null ? LatestReleaseId.GetHashCode() : 0);
+                int hashCode = LatestReleaseId != null ? LatestReleaseId.GetHashCode() : 0;
                 hashCode = (hashCode * 397) ^ (LatestSnapshotId != null ? LatestSnapshotId.GetHashCode() : 0);
+
+                //We don't care about the raw manifest, only the values generated from it!
+
                 return AvailableVersions.Aggregate(hashCode, (current, availableVersion) => (current * 397) ^ availableVersion.GetHashCode());
             }
         }

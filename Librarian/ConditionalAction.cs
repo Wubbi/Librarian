@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 
-namespace Librarian
+namespace com.github.Wubbi.Librarian
 {
     /// <summary>
     /// Contains conditions for when this action is supposed to trigger as well as the action itself

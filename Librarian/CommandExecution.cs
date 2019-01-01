@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace Librarian
+namespace com.github.Wubbi.Librarian
 {
     public static class CommandExecution
     {

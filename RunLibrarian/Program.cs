@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using Librarian;
 
 namespace RunLibrarian
 {
@@ -29,7 +28,7 @@ namespace RunLibrarian
                     "
                     );
 
-                Librarian.Librarian librarian = new Librarian.Librarian(settingsFile);
+                com.github.Wubbi.Librarian.Librarian librarian = new com.github.Wubbi.Librarian.Librarian(settingsFile);
 
                 librarian.Run();
             }

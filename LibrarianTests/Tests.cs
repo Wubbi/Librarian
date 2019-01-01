@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Threading;
-using Librarian;
+using com.github.Wubbi.Librarian;
 using NUnit.Framework;
 
 namespace LibrarianTests
@@ -26,6 +26,11 @@ namespace LibrarianTests
             Assert.Throws<InvalidDataException>(() =>
             {
                 WebAccess.DownloadAndStoreFile(versionManifestUrl, null, 1);
+            });
+
+            Assert.Throws<InvalidDataException>(() =>
+            {
+                WebAccess.DownloadAndStoreFile(versionManifestUrl, null, 0, "1234");
             });
 
             WebAccess.DownloadAndStoreFile(versionManifestUrl);
@@ -58,10 +63,20 @@ namespace LibrarianTests
             Assert.AreEqual(new DateTime(2018, 12, 12, 16, 58, 33, DateTimeKind.Utc), gameVersion.TimeOfPublication);
             Assert.AreEqual(new DateTime(2018, 12, 12, 15, 58, 13, DateTimeKind.Utc), gameVersion.TimeOfUpload);
 
-            Assert.AreEqual("https://launcher.mojang.com/v1/objects/865a610fe77eb9d2fea48de1a02229526a391249/client.jar", gameVersion.ClientDownloadUrl);
-            Assert.AreEqual(17751566L, gameVersion.ClientDownloadSize);
-            Assert.AreEqual("https://launcher.mojang.com/v1/objects/de0577900a9071758d7f1172dd283bdbe88b7431/server.jar", gameVersion.ServerDownloadUrl);
-            Assert.AreEqual(35155114L, gameVersion.ServerDownloadSize);
+            GameVersionExtended gameVersionExtended = new GameVersionExtended(gameVersion);
+
+            Assert.AreEqual("18w50a", gameVersionExtended.Id);
+            Assert.AreEqual(GameVersion.BuildType.Snapshot, gameVersionExtended.Type);
+            Assert.AreEqual("https://launchermeta.mojang.com/v1/packages/bb3dedc8edfa074b4d5a6a483ff073801dde6479/18w50a.json", gameVersionExtended.VersionMetadataUrl);
+            Assert.AreEqual(new DateTime(2018, 12, 12, 16, 58, 33, DateTimeKind.Utc), gameVersionExtended.TimeOfPublication);
+            Assert.AreEqual(new DateTime(2018, 12, 12, 15, 58, 13, DateTimeKind.Utc), gameVersionExtended.TimeOfUpload);
+
+            Assert.AreEqual("https://launcher.mojang.com/v1/objects/865a610fe77eb9d2fea48de1a02229526a391249/client.jar", gameVersionExtended.ClientDownloadUrl);
+            Assert.AreEqual(17751566L, gameVersionExtended.ClientDownloadSize);
+            Assert.AreEqual("865a610fe77eb9d2fea48de1a02229526a391249", gameVersionExtended.ClientDownloadSha1);
+            Assert.AreEqual("https://launcher.mojang.com/v1/objects/de0577900a9071758d7f1172dd283bdbe88b7431/server.jar", gameVersionExtended.ServerDownloadUrl);
+            Assert.AreEqual(35155114L, gameVersionExtended.ServerDownloadSize);
+            Assert.AreEqual("de0577900a9071758d7f1172dd283bdbe88b7431", gameVersionExtended.ServerDownloadSha1);
 
         }
 
@@ -78,7 +93,7 @@ namespace LibrarianTests
         [Test]
         public void TestWatcherBaseFunctions()
         {
-            ManifestWatcher watcher = new ManifestWatcher();
+            ManifestWatcher watcher = new ManifestWatcher(null);
             Assert.NotNull(watcher.CurrentInventory);
             Thread.Sleep(1000);
             watcher.Start(TimeSpan.FromHours(1));

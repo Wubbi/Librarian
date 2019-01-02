@@ -7,7 +7,7 @@
 	[
 		{
 			beforeDownload:true,
-			dependedOnIds:[],
+			dependentOnIds:[],
 			type:"Snapshot",
 			triggerTypes:["Added","Changed"],
 			commands:
@@ -23,7 +23,7 @@
 		},
 		{
 			beforeDownload:false,
-			dependedOnIds:[0],
+			dependentOnIds:[0],
 			type:"Snapshot",
 			triggerTypes:["Added"],
 			commands:

@@ -25,7 +25,7 @@ Here is an example of what this file might look like:
 	[
 		{
 			beforeDownload:true,
-			dependedOnIds:[],
+			dependentOnIds:[],
 			type:"Snapshot",
 			triggerTypes:["Added","Changed"],
 			commands:
@@ -41,7 +41,7 @@ Here is an example of what this file might look like:
 		},
 		{
 			beforeDownload:false,
-			dependedOnIds:[0],
+			dependentOnIds:[0],
 			type:"Snapshot",
 			triggerTypes:["Added"],
 			commands:
@@ -115,7 +115,7 @@ Determines whether this task is to be run before or after Librarian downloads th
 ---
 
 ```JSONiq
-dependedOnIds:[]
+dependentOnIds:[]
 ```
 A list of tasks that need to be executed succesfully (filters applied, all commands succeeded) before this one can.
 The Ids used here are simply the indices ot the task in the tasks:[] array (starting at 0).

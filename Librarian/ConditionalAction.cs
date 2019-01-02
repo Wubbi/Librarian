@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using Microsoft.VisualStudio.TestPlatform.Common.ExtensionFramework;
 using Newtonsoft.Json.Linq;
 
 namespace com.github.Wubbi.Librarian
@@ -12,6 +13,16 @@ namespace com.github.Wubbi.Librarian
     /// </summary>
     public class ConditionalAction
     {
+        [Flags]
+        public enum TriggerType
+        {
+            None = 0,
+            Latest = 1,
+            Added = 2,
+            Changed = 4,
+            Removed = 8
+        }
+
         /// <summary>
         /// The unique identifier for this <see cref="ConditionalAction"/>
         /// </summary>
@@ -33,22 +44,9 @@ namespace com.github.Wubbi.Librarian
         private readonly GameVersion.BuildType _type;
 
         /// <summary>
-        /// Only trigger for the latest version, ignore other changes
+        /// The kind of update this Action should react to. Can be mor than one type
         /// </summary>
-        private readonly bool _onLatest;
-
-        /// <summary>
-        /// Trigger for newly added versions. Ignored if <see cref="_onLatest"/> is True
-        /// </summary>
-        private readonly bool _onAdded;
-        /// <summary>
-        /// Trigger for changed versions. Ignored if <see cref="_onLatest"/> is True
-        /// </summary>
-        private readonly bool _onChanged;
-        /// <summary>
-        /// Trigger for removed versions. Ignored if <see cref="_onLatest"/> is True
-        /// </summary>
-        private readonly bool _onRemoved;
+        private readonly TriggerType _triggerTypes;
 
         /// <summary>
         /// The commands to execute if the conditions apply
@@ -80,14 +78,13 @@ namespace com.github.Wubbi.Librarian
             _dependentOnIds = new ReadOnlyCollection<int>(settings["dependentOnIds"]?.Values<int>()?.ToList() ?? new List<int>());
             if (!Enum.TryParse(settings["type"]?.Value<string>(), true, out _type))
                 _type = GameVersion.BuildType.Release;
-            _onLatest = settings["onLatest"]?.Value<bool>() ?? true;
 
-            if (!_onLatest)
-            {
-                _onAdded = settings["onAdded"]?.Value<bool>() ?? true;
-                _onChanged = settings["onChanged"]?.Value<bool>() ?? false;
-                _onRemoved = settings["onRemoved"]?.Value<bool>() ?? false;
-            }
+            IEnumerable<string> triggerTypes = settings["triggerTypes"]?.Values<string>();
+
+            if (triggerTypes != null)
+                foreach (string triggerType in triggerTypes)
+                    if (Enum.TryParse(triggerType, out TriggerType type))
+                        _triggerTypes |= type;
 
             _commands = new ReadOnlyCollection<string>(settings["commands"]?.Values<string>()?.ToList() ?? new List<string>());
 
@@ -114,24 +111,22 @@ namespace com.github.Wubbi.Librarian
             if (_dependentOnIds.Except(completedIds).Any())
                 return false;
 
-            if (_onLatest)
+            if (_triggerTypes.HasFlag(TriggerType.Latest))
             {
-                if (_type == GameVersion.BuildType.Release && inventoryUpdate.NewReleaseId == null)
-                    return false;
+                if (_type == GameVersion.BuildType.Release && inventoryUpdate.NewReleaseId != null)
+                    return true;
 
-                if (_type == GameVersion.BuildType.Snapshot && inventoryUpdate.NewSnapshotId == null)
-                    return false;
-
-                return true;
+                if (_type == GameVersion.BuildType.Snapshot && inventoryUpdate.NewSnapshotId != null)
+                    return true;
             }
 
-            if (_onAdded && inventoryUpdate.AddedVersions.Any(v => v.Type == _type))
+            if (_triggerTypes.HasFlag(TriggerType.Added) && inventoryUpdate.AddedVersions.Any(v => v.Type == _type))
                 return true;
 
-            if (_onChanged && inventoryUpdate.ChangedVersions.Any(v => v.Type == _type))
+            if (_triggerTypes.HasFlag(TriggerType.Changed) && inventoryUpdate.ChangedVersions.Any(v => v.Type == _type))
                 return true;
 
-            if (_onRemoved && inventoryUpdate.RemovedVersions.Any(v => v.Type == _type))
+            if (_triggerTypes.HasFlag(TriggerType.Removed) && inventoryUpdate.RemovedVersions.Any(v => v.Type == _type))
                 return true;
 
             return false;
@@ -146,27 +141,27 @@ namespace com.github.Wubbi.Librarian
         public bool ActionsPerformed(LauncherInventory.Diff inventoryUpdate, string libraryRootPath)
         {
             List<GameVersion> versionsToProcess = new List<GameVersion>();
-            if (_onLatest)
+
+            if (_triggerTypes.HasFlag(TriggerType.Latest))
             {
-                if (_type == GameVersion.BuildType.Snapshot && inventoryUpdate.NewSnapshotId != null)
+                if (_type == GameVersion.BuildType.Snapshot && inventoryUpdate.NewSnapshotId != null && versionsToProcess.All(v => v.Id != inventoryUpdate.NewSnapshotId))
                     versionsToProcess.Add(inventoryUpdate.NewInventory.AvailableVersions.First(v => v.Id == inventoryUpdate.NewSnapshotId));
-                else if (_type == GameVersion.BuildType.Release && inventoryUpdate.NewReleaseId != null)
+                else if (_type == GameVersion.BuildType.Release && inventoryUpdate.NewReleaseId != null && versionsToProcess.All(v => v.Id != inventoryUpdate.NewReleaseId))
                     versionsToProcess.Add(inventoryUpdate.NewInventory.AvailableVersions.First(v => v.Id == inventoryUpdate.NewReleaseId));
             }
-            else
-            {
-                if (_onAdded)
-                    versionsToProcess.AddRange(inventoryUpdate.AddedVersions.Where(v => v.Type == _type));
 
-                if (_onChanged)
-                    versionsToProcess.AddRange(inventoryUpdate.ChangedVersions.Where(v => v.Type == _type));
+            if (_triggerTypes.HasFlag(TriggerType.Added))
+                versionsToProcess.AddRange(inventoryUpdate.AddedVersions.Where(v => v.Type == _type));
 
-                if (_onRemoved)
-                    versionsToProcess.AddRange(inventoryUpdate.RemovedVersions.Where(v => v.Type == _type));
-            }
+            if (_triggerTypes.HasFlag(TriggerType.Changed))
+                versionsToProcess.AddRange(inventoryUpdate.ChangedVersions.Where(v => v.Type == _type));
+
+            if (_triggerTypes.HasFlag(TriggerType.Removed))
+                versionsToProcess.AddRange(inventoryUpdate.RemovedVersions.Where(v => v.Type == _type));
+
 
             bool allSucceeded = true;
-            foreach (GameVersion gameVersion in versionsToProcess.OrderBy(v => v.TimeOfUpload))
+            foreach (GameVersion gameVersion in versionsToProcess.Distinct().OrderBy(v => v.TimeOfUpload))
                 if (!RunCommandsOnVersion(gameVersion, libraryRootPath))
                     allSucceeded = false;
 

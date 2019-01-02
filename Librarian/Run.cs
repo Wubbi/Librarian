@@ -37,6 +37,7 @@ namespace com.github.Wubbi.Librarian
 	refreshRate:29,
 	libraryPath:"""",
 	addMissingVersions:false,
+	CheckJarFiles:false,
 	tasks:
 	[
 	]

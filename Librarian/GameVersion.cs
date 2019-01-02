@@ -100,6 +100,30 @@ namespace com.github.Wubbi.Librarian
             LibrarySubFolder = other.LibrarySubFolder;
         }
 
+        /// <summary>
+        /// The full path where this versions metadata should be located in the library
+        /// </summary>
+        /// <param name="libraryRootFolder">The path to the library</param>
+        /// <returns>A full path to the local json file that is supposed to hold this versions metadata</returns>
+        public string GetMetaDataFilePath(string libraryRootFolder)
+            => Path.Combine(libraryRootFolder, LibrarySubFolder, Id + ".json");
+
+        /// <summary>
+        /// The full path where this versions client jar should be located in the library
+        /// </summary>
+        /// <param name="libraryRootFolder">The path to the library</param>
+        /// <returns>A full path to the local client.jar</returns>
+        public string GetClientFilePath(string libraryRootFolder)
+            => Path.Combine(libraryRootFolder, LibrarySubFolder, "client.json");
+
+        /// <summary>
+        /// The full path where this versions server jar should be located in the library
+        /// </summary>
+        /// <param name="libraryRootFolder">The path to the library</param>
+        /// <returns>A full path to the local server.jar</returns>
+        public string GetServerFilePath(string libraryRootFolder)
+            => Path.Combine(libraryRootFolder, LibrarySubFolder, "server.json");
+
         public bool Equals(GameVersion other)
         {
             if (other is null) return false;
@@ -171,11 +195,13 @@ namespace com.github.Wubbi.Librarian
         public string ServerDownloadSha1 { get; }
 
         /// <summary>
-        /// Creates a new <see cref="GameVersionExtended"/> by downloading the required data according to an existing <see cref="GameVersion"/>
+        /// Creates a new <see cref="GameVersionExtended"/> using the provided metadata or by downloading the required data according the base <see cref="GameVersion"/>
         /// </summary>
-        public GameVersionExtended(GameVersion basis) : base(basis)
+        /// <param name="basis">The manifest based data of this version</param>
+        /// <param name="metadata">This versions metadata or null to have it be downloaded according to <paramref name="basis"/></param>
+        public GameVersionExtended(GameVersion basis, string metadata = null) : base(basis)
         {
-            MetaData = WebAccess.DownloadFileAsString(VersionMetadataUrl);
+            MetaData = metadata ?? WebAccess.DownloadFileAsString(VersionMetadataUrl);
 
             JObject metaData = JObject.Parse(MetaData);
 

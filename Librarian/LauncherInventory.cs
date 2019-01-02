@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 
@@ -55,6 +56,9 @@ namespace com.github.Wubbi.Librarian
             List<GameVersion> gameVersions = manifest["versions"].Select(v => new GameVersion(v.ToString())).ToList();
             AvailableVersions = new ReadOnlyCollection<GameVersion>(gameVersions);
         }
+
+        public static string GetManifestFilePath(string libraryRootFolder)
+            => Path.Combine(libraryRootFolder, "Manifests", DateTime.Now.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss_UTC") + ".json");
 
         public bool Equals(LauncherInventory other)
         {

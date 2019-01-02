@@ -144,6 +144,7 @@ A list of types of update this task is triggered by. Currently available:
 - `Added` - React to versions that were not available before
 - `Changed` - React to versions that were available before, but have undergone some change
 - `Removed` - React to versions that are not available anymore  
+
 Keep the following in mind:  
 Especially if you haven't used Librarian for a while, several versions might be updated and are therefore processed by a single task.
 `Latest` is the only option that (by definition) applies to only one single version!

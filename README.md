@@ -7,8 +7,8 @@ to trigger further actions, like sending a message.
 
 **This project uses .NET Core 2.1**
 
-To use the [binaries](https://github.com/Wubbi/Librarian/releases) make sure you have at least the [Runtime](https://dotnet.microsoft.com/download) installed.  
-Afterwards you can start the program with `dotnet RunLibrarian.dll`.
+To use the [binaries](https://github.com/Wubbi/Librarian/releases) make sure you have at least the [.Net Core Runtime](https://dotnet.microsoft.com/download) installed.  
+Afterwards you can start the program with `dotnet Librarian.dll`.
 
 ## Settings
 
@@ -17,23 +17,21 @@ Here is an example of what this file might look like:
 
 ```JSONiq
 {
-	refreshRate:30,
-	libraryPath:"G:/Library",
+	refreshRate:29,
+	libraryPath:"G:\\Library",
 	addMissingVersions:true,
+	checkjarFiles:false,
 	tasks:
 	[
 		{
 			beforeDownload:true,
 			dependedOnIds:[],
 			type:"Snapshot",
-			onLatest:false,
-			onAdded:true,
-			onChanged:true,
-			onRemoved:false,
+			triggerTypes:["Added","Changed"],
 			commands:
 			[
-				"echo Snapshot version $id is out!",
-				"echo It will be stored in $path"
+				"msg \"%username%\" Snapshot version $id is out!",
+				"msg \"%username%\" It will be stored in $path"
 			],
 			params:
 			{
@@ -43,19 +41,16 @@ Here is an example of what this file might look like:
 		},
 		{
 			beforeDownload:false,
-			dependedOnIds:[],
+			dependedOnIds:[0],
 			type:"Snapshot",
-			onLatest:false,
-			onAdded:true,
-			onChanged:false,
-			onRemoved:false,
+			triggerTypes:["Added"],
 			commands:
 			[
-				"echo It was stored in _"
+				"msg \"%username%\" It was stored in $path"
 			],
 			params:
 			{
-				path:"_"
+				path:"$path"
 			}
 		}
 	]
@@ -66,15 +61,15 @@ Here is an example of what this file might look like:
 ---
 
 ```JSONiq
-refreshRate:30
+refreshRate:29
 ```
-This is the time in seconds between two queries to the Mojang server, so in our example the Librarian looks for new versions every 30 seconds.
+This is the time in seconds between two queries to the Mojang server, so in our example the Librarian looks for new versions every 29 seconds.
 While it is in seconds, remember that updates do not happen all to often. A refresh every few hours might be all you need.
 
 ---
 
 ```JSONiq
-libraryPath:"G:/Library"
+libraryPath:"G:\\Library"
 ```
 This is the location of the library the Librarian maintains. All files will be donwloaded into its structure,
 organized by `<type>/<name>/<release_date>`. Furthermore, this is the place where the logfile will be written.
@@ -85,11 +80,17 @@ organized by `<type>/<name>/<release_date>`. Furthermore, this is the place wher
 addMissingVersions:true
 ```
 Depending on your use case, you might not have the Librarian running whenever a new version comes out, but still want
-the library to be complete. Setting this value to true will force the Librarian to update the library before starting its
-usual routine. These library updates do NOT trigger any of the tasks! 
+the tasks to be executed for the updates you've missed. When this flag is set to true Librarian will start by comparing the last manifest it knows to the live one and processes it like an update.
 
-As a sidenote: Librarian considers a version to be in the library if its folders exist (down to the <release_date> one),
-not whether or not any .jar files are present in it. This way you can freely move them somewhere else into your own archive structure.
+---
+
+```JSONiq
+checkjarFiles:true
+```
+The main purpose of this flag is to make Librarian check whether or not the server/client .jar files are present in the library. 
+By default only the existence of the metadata file is checked.  
+As a secondary function, setting this flag to false will prevent Librarian to dowload .jar files when it builds its library 
+for the very first time (which at the time of this writing prevents ~8 GB of data from beeing downloaded).
 
 ---
 
@@ -117,10 +118,7 @@ Determines whether this task is to be run before or after Librarian downloads th
 dependedOnIds:[]
 ```
 A list of tasks that need to be executed succesfully (filters applied, all commands succeeded) before this one can.
-The Ids uses here are simply the indices ot the task in the tasks:[] array (starting at 0).
-
-Attention: Tasks before the download can (understandably) not depend on tasks after.
-But neither can those after the download depend on those before!
+The Ids used here are simply the indices ot the task in the tasks:[] array (starting at 0).
 
 ---
 
@@ -136,31 +134,13 @@ Filters which type of release this task reacts to. Can only be one of these:
 ---
 
 ```JSONiq
-onLatest:false
+triggerTypes:[]
 ```
-If this flag is set, the task only reacts to a change of the latest (=newest) release (of the type specified with `type`) 
-and will ignore all other versions that might have ben added since the last refresh.
-
----
-
-```JSONiq
-onAdded:true
-```
-If set, this task will be run against all versions added since the last query of the Mojang server. Ignored if `onLatest` is set.
-
----
-
-```JSONiq
-onChanged:true
-```
-If set, this task will be run against all versions that existed before, but have received an update since. Ignored if `onLatest` is set.
-
----
-
-```JSONiq
-onRemoved:true
-```
-If set, this task will be run against all versions that existed before, but not anymore. Ignored if `onLatest` is set.
+A list of types of update this task is triggered by. Currently available:
+- `Latest` - React to a change of what is considered to be the latest version of the type specified by `type`
+- `Added` - React to versions that were not available before
+- `Changed` - React to versions that were available before, but have undergone some change
+- `Removed` - React to versions that are not available anymore
 
 ---
 
@@ -180,11 +160,9 @@ and a value, that is used as a variable in the commands. Currently only two para
 - `path` - The path in which the files are (going to be) stored (filenames are ALWAYS client.jar and server.jar)
 
 
-## Commandline parameters
+## Commandline arguments
 
-RunLibrarian accepts up to two parameters:
-
-The first one is the file containing the required settings.
-
-The second parameter is the flag `-output`, which will prevent the console from displaying any log entries.
+When starting Librarian you can specifiy the following arguments:
+- `-s <settings_file>` - This allows you to specify a textfile to read settings from
+- `--o` - This turns of the standard output. By default the console displays entries made to the log
 

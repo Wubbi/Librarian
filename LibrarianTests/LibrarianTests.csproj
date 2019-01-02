@@ -6,6 +6,8 @@
     <IsPackable>false</IsPackable>
 
     <LangVersion>7.3</LangVersion>
+
+    <RootNamespace>com.github.Wubbi.LibrarianTests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

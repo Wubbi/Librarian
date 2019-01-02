@@ -13,9 +13,9 @@ namespace com.github.Wubbi.Librarian
     public class Librarian : IDisposable
     {
         /// <summary>
-        /// The settings this <see cref="Librarian"/> was initialized with
+        /// A list of subsequent updates on the launcher manifest
         /// </summary>
-        public Settings Settings { get; }
+        private readonly BlockingCollection<LauncherInventory.Diff> _launcherManifestUpdates;
 
         /// <summary>
         /// The watcher that fires an event on every change of the launchers manifest
@@ -23,9 +23,9 @@ namespace com.github.Wubbi.Librarian
         private readonly ManifestWatcher _manifestWatcher;
 
         /// <summary>
-        /// A list of subsequent updates on the launcher manifest
+        /// The settings this <see cref="Librarian"/> was initialized with
         /// </summary>
-        private readonly BlockingCollection<LauncherInventory.Diff> _launcherManifestUpdates;
+        public Settings Settings { get; }
 
         public Librarian(string settingsFile)
         {
@@ -48,6 +48,13 @@ namespace com.github.Wubbi.Librarian
             Logger.Info($"Librarian {Assembly.GetExecutingAssembly().GetName().Version} initialized");
         }
 
+        public void Dispose()
+        {
+            Logger.Info("Disposing Librarian");
+            _manifestWatcher?.Dispose();
+            _launcherManifestUpdates?.Dispose();
+        }
+
         /// <summary>
         /// This method blocks the current thread in between updates of the launcher manifest. Will perform actions matching a filter for each update.
         /// </summary>
@@ -67,7 +74,7 @@ namespace com.github.Wubbi.Librarian
             foreach (LauncherInventory.Diff update in _launcherManifestUpdates.GetConsumingEnumerable())
             {
                 Logger.Info("Processing update of manifest");
-                List<int> completedIds=new List<int>();
+                List<int> completedIds = new List<int>();
 
                 TriggerActions(update, false, ref completedIds);
 
@@ -87,7 +94,7 @@ namespace com.github.Wubbi.Librarian
         /// <param name="launcherInventory">The inventory the library should update to, or null to reference the latest stored inventory</param>
         /// <param name="metaOnly">If True, only the and metadata and no jar files are downloaded</param>
         /// <returns></returns>
-        private List<GameVersionExtended> UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false)
+        private void UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false)
         {
             Logger.Info("Updating library" + (metaOnly ? " (Metadata only)" : ""));
 
@@ -98,7 +105,7 @@ namespace com.github.Wubbi.Librarian
             if (launcherInventory == null && latestStoredManifest == null)
             {
                 Logger.Info("No manifest found to update to");
-                return new List<GameVersionExtended>();
+                return;
             }
 
             if (launcherInventory == null)
@@ -202,8 +209,6 @@ namespace com.github.Wubbi.Librarian
             }
 
             Logger.Info("Library is up to date");
-
-            return addedVersions;
         }
 
         public LauncherInventory GetLatestStoredManifest()
@@ -230,7 +235,7 @@ namespace com.github.Wubbi.Librarian
         private void TriggerActions(LauncherInventory.Diff inventoryUpdate, bool downloadsComplete, ref List<int> completedActionIds)
         {
             List<ConditionalAction> actionsToRun = new List<ConditionalAction>(Settings.ConditionalActions);
-            
+
             bool actionsPerformed;
             do
             {
@@ -251,13 +256,6 @@ namespace com.github.Wubbi.Librarian
                 }
             }
             while (actionsPerformed);
-        }
-
-        public void Dispose()
-        {
-            Logger.Info("Disposing Librarian");
-            _manifestWatcher?.Dispose();
-            _launcherManifestUpdates?.Dispose();
         }
     }
 }

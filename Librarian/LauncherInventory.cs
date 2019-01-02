@@ -57,9 +57,6 @@ namespace com.github.Wubbi.Librarian
             AvailableVersions = new ReadOnlyCollection<GameVersion>(gameVersions);
         }
 
-        public static string GetManifestFilePath(string libraryRootFolder)
-            => Path.Combine(libraryRootFolder, "Manifests", DateTime.Now.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss_UTC") + ".json");
-
         public bool Equals(LauncherInventory other)
         {
             if (other is null) return false;
@@ -69,6 +66,9 @@ namespace com.github.Wubbi.Librarian
 
             return AvailableVersions.SequenceEqual(other.AvailableVersions);
         }
+
+        public static string GetManifestFilePath(string libraryRootFolder)
+            => Path.Combine(libraryRootFolder, "Manifests", DateTime.Now.ToUniversalTime().ToString("yyyy-MM-dd_HH-mm-ss_UTC") + ".json");
 
         public override bool Equals(object obj)
         {

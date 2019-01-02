@@ -4,11 +4,11 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <LangVersion>7.3</LangVersion>
     <Authors>Wubbi</Authors>
-    <Company />
-    <AssemblyVersion>0.5.0.0</AssemblyVersion>
-    <FileVersion>0.4.0.0</FileVersion>
+    <Company>WubbiConcepts</Company>
+    <AssemblyVersion>0.6.0.0</AssemblyVersion>
+    <FileVersion>0.6.0.0</FileVersion>
     <PackageProjectUrl>https://github.com/Wubbi/Librarian</PackageProjectUrl>
-    <ApplicationIcon />
+    <ApplicationIcon></ApplicationIcon>
     <OutputType>Exe</OutputType>
     <StartupObject />
     <RootNamespace>com.github.Wubbi.Librarian</RootNamespace>
@@ -32,12 +32,6 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Microsoft.VisualStudio.TestPlatform.Common">
-      <HintPath>C:\Users\Wubbi\.nuget\packages\microsoft.testplatform.testhost\15.8.0\lib\netstandard1.5\Microsoft.VisualStudio.TestPlatform.Common.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>

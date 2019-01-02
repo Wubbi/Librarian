@@ -100,6 +100,14 @@ namespace com.github.Wubbi.Librarian
             LibrarySubFolder = other.LibrarySubFolder;
         }
 
+        public bool Equals(GameVersion other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl)
+                   && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload);
+        }
+
         /// <summary>
         /// The full path where this versions metadata should be located in the library
         /// </summary>
@@ -123,14 +131,6 @@ namespace com.github.Wubbi.Librarian
         /// <returns>A full path to the local server.jar</returns>
         public string GetServerFilePath(string libraryRootFolder)
             => Path.Combine(libraryRootFolder, LibrarySubFolder, "server.json");
-
-        public bool Equals(GameVersion other)
-        {
-            if (other is null) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return string.Equals(Id, other.Id) && Type == other.Type && string.Equals(VersionMetadataUrl, other.VersionMetadataUrl)
-                   && TimeOfPublication.Equals(other.TimeOfPublication) && TimeOfUpload.Equals(other.TimeOfUpload);
-        }
 
         public override bool Equals(object obj)
         {

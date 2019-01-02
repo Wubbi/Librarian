@@ -4,7 +4,7 @@ using System.Threading;
 using com.github.Wubbi.Librarian;
 using NUnit.Framework;
 
-namespace LibrarianTests
+namespace com.github.Wubbi.LibrarianTests
 {
     public class Tests
     {

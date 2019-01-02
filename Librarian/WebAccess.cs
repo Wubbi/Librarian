@@ -80,7 +80,7 @@ namespace com.github.Wubbi.Librarian
                 if (expectedSize > 0L && downloadedData.LongLength != expectedSize)
                     throw new InvalidDataException($"The downloaded data ({downloadedData.LongLength} Bytes) does not match the expected size ({expectedSize} Bytes)");
 
-                if(sha1!=null && GenerateSha1HexString(downloadedData)!=sha1)
+                if (sha1 != null && GenerateSha1HexString(downloadedData) != sha1)
                     throw new InvalidDataException("The SHA1 hash of the download does not match the expected one");
 
                 return downloadedData;

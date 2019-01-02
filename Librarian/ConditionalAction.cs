@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using Microsoft.VisualStudio.TestPlatform.Common.ExtensionFramework;
 using Newtonsoft.Json.Linq;
 
 namespace com.github.Wubbi.Librarian
@@ -24,34 +23,19 @@ namespace com.github.Wubbi.Librarian
         }
 
         /// <summary>
-        /// The unique identifier for this <see cref="ConditionalAction"/>
-        /// </summary>
-        public int Id { get; }
-
-        /// <summary>
         /// If True, triggers before, if False, after the downloads ar made
         /// </summary>
         private readonly bool _beforeDownload;
 
         /// <summary>
-        /// Actions that need to be completed successfully 
-        /// </summary>
-        private readonly ReadOnlyCollection<int> _dependentOnIds;
-
-        /// <summary>
-        /// The kind of release this Action targets
-        /// </summary>
-        private readonly GameVersion.BuildType _type;
-
-        /// <summary>
-        /// The kind of update this Action should react to. Can be mor than one type
-        /// </summary>
-        private readonly TriggerType _triggerTypes;
-
-        /// <summary>
         /// The commands to execute if the conditions apply
         /// </summary>
         private readonly ReadOnlyCollection<string> _commands;
+
+        /// <summary>
+        /// Actions that need to be completed successfully 
+        /// </summary>
+        private readonly ReadOnlyCollection<int> _dependentOnIds;
 
         /// <summary>
         /// Replace pattern for the version Id
@@ -62,6 +46,21 @@ namespace com.github.Wubbi.Librarian
         /// Replace pattern for the download folder
         /// </summary>
         private readonly string _paramPath;
+
+        /// <summary>
+        /// The kind of update this Action should react to. Can be mor than one type
+        /// </summary>
+        private readonly TriggerType _triggerTypes;
+
+        /// <summary>
+        /// The kind of release this Action targets
+        /// </summary>
+        private readonly GameVersion.BuildType _type;
+
+        /// <summary>
+        /// The unique identifier for this <see cref="ConditionalAction"/>
+        /// </summary>
+        public int Id { get; }
 
         /// <summary>
         /// Creates a new <see cref="ConditionalAction"/> based on the settings given as json string

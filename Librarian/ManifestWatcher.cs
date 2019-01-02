@@ -19,11 +19,6 @@ namespace com.github.Wubbi.Librarian
         public LauncherInventory CurrentInventory { get; private set; }
 
         /// <summary>
-        /// Fires when the launchers version manifest received an update of some sort
-        /// </summary>
-        public event Action<LauncherInventory.Diff> ChangeInLauncherManifest;
-
-        /// <summary>
         /// Creates a new <see cref="ManifestWatcher"/> that performs regular comparisons of the current manifest file with the known one
         /// </summary>
         /// <param name="initialComparison">The <see cref="LauncherInventory"/> comparisons are made with initially or null to download the live version</param>
@@ -33,6 +28,16 @@ namespace com.github.Wubbi.Librarian
 
             _timer = new Timer(CheckLauncherManifest, null, TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(-1));
         }
+
+        public void Dispose()
+        {
+            _timer?.Dispose();
+        }
+
+        /// <summary>
+        /// Fires when the launchers version manifest received an update of some sort
+        /// </summary>
+        public event Action<LauncherInventory.Diff> ChangeInLauncherManifest;
 
         /// <summary>
         /// Starts (or resets) the watcher with a specific time interval
@@ -67,11 +72,6 @@ namespace com.github.Wubbi.Librarian
             ChangeInLauncherManifest?.Invoke(new LauncherInventory.Diff(CurrentInventory, liveInventory));
 
             CurrentInventory = liveInventory;
-        }
-
-        public void Dispose()
-        {
-            _timer?.Dispose();
         }
     }
 }

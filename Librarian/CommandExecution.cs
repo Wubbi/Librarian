@@ -21,7 +21,7 @@ namespace com.github.Wubbi.Librarian
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = useBash ? "/bin/bash" : "CMD.exe",
-                        Arguments = useBash ? "-c" : "/C " + command,
+                        Arguments = (useBash ? "-c" : "/C ") + command,
                         CreateNoWindow = true,
                         UseShellExecute = false
                     }

@@ -29,7 +29,7 @@ namespace com.github.Wubbi.Librarian
 
         private static void Log(string data)
         {
-            data = data.Replace(Environment.NewLine, "\t" + Environment.NewLine);
+            data = data.Replace(Environment.NewLine, Environment.NewLine + "\t");
 
             data = $"[{DateTime.Now.ToUniversalTime():u}] {data}";
 

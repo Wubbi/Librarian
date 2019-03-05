@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -60,14 +61,20 @@ namespace com.github.Wubbi.Librarian
         /// </summary>
         public void Run()
         {
-            if (GetLatestStoredManifest() is null)
+            LauncherInventory latestStoredManifest = GetLatestStoredManifest();
+
+            if (latestStoredManifest is null)
             {
                 Logger.Info("Empty library, setting up initial library state");
                 UpdateLibrary(_manifestWatcher.CurrentInventory, !Settings.CheckJarFiles);
                 Logger.Info("Library set up");
             }
+            else if (Settings.MaintainInventory)
+            {
+                UpdateLibrary(latestStoredManifest, !Settings.CheckJarFiles, true);
+            }
 
-            Logger.Info("Starting run");
+            Logger.Info("Starting periodic manifest watch");
 
             _manifestWatcher.Start(TimeSpan.FromSeconds(Settings.ManifestRefreshRate));
 
@@ -82,7 +89,7 @@ namespace com.github.Wubbi.Librarian
 
                 TriggerActions(update, true, ref completedIds);
 
-                Logger.Info("Update of manifest processed");
+                Logger.Info("Update of manifest processed. Continuing periodic manifest watch");
             }
 
             Logger.Error("Librarian stopped its run without being triggered to do so");
@@ -92,37 +99,131 @@ namespace com.github.Wubbi.Librarian
         /// Updates the Library and returns a list of versions that got added
         /// </summary>
         /// <param name="launcherInventory">The inventory the library should update to, or null to reference the latest stored inventory</param>
-        /// <param name="metaOnly">If True, only the and metadata and no jar files are downloaded</param>
+        /// <param name="metaOnly">If True, only the manifest and metadata but no jar files are downloaded</param>
         /// <returns></returns>
-        private void UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false)
+        private void UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false, bool skipLauncherCheck = false)
         {
-            Logger.Info("Updating library" + (metaOnly ? " (Metadata only)" : ""));
-
-            string manifestFolder = Path.GetDirectoryName(LauncherInventory.GetManifestFilePath(Settings.LibraryPath));
-
-            LauncherInventory latestStoredManifest = GetLatestStoredManifest();
-
-            if (launcherInventory == null && latestStoredManifest == null)
+            if (skipLauncherCheck)
             {
-                Logger.Info("No manifest found to update to");
-                return;
+                Logger.Info("Comparing manifest to current library");
+                if (launcherInventory is null)
+                    launcherInventory = GetLatestStoredManifest();
+            }
+            else
+            {
+                Logger.Info("Updating library" + (metaOnly ? " (Metadata only)" : ""));
+
+                string manifestFolder = Path.GetDirectoryName(LauncherInventory.GetManifestFilePath(Settings.LibraryPath));
+
+                LauncherInventory latestStoredManifest = GetLatestStoredManifest();
+
+                if (launcherInventory == null && latestStoredManifest == null)
+                {
+                    Logger.Info("No manifest found to update to");
+                    return;
+                }
+
+                if (launcherInventory == null)
+                {
+                    Logger.Info("Using latest stored manifest");
+                    launcherInventory = latestStoredManifest;
+                }
+                else if (!launcherInventory.Equals(latestStoredManifest))
+                {
+                    if (!Directory.Exists(manifestFolder))
+                        Directory.CreateDirectory(manifestFolder);
+
+                    File.WriteAllText(LauncherInventory.GetManifestFilePath(Settings.LibraryPath), launcherInventory.Manifest);
+                    Logger.Info("Added new manifest");
+                }
             }
 
-            if (launcherInventory == null)
-            {
-                Logger.Info("Using latest stored manifest");
-                launcherInventory = latestStoredManifest;
-            }
-            else if (!launcherInventory.Equals(latestStoredManifest))
-            {
-                if (!Directory.Exists(manifestFolder))
-                    Directory.CreateDirectory(manifestFolder);
+            IEnumerable<GameVersionExtended> missingVersions = GetMissingVersions(launcherInventory, metaOnly);
 
-                File.WriteAllText(LauncherInventory.GetManifestFilePath(Settings.LibraryPath), launcherInventory.Manifest);
-                Logger.Info("Added new manifest");
+            List<GameVersionExtended> processedVersions = new List<GameVersionExtended>();
+
+            foreach (GameVersionExtended version in missingVersions)
+            {
+
+                string versionRootPath = Path.Combine(Settings.LibraryPath, version.LibrarySubFolder);
+
+                bool isUpdate = false;
+
+                if (!Directory.Exists(versionRootPath))
+                    Directory.CreateDirectory(versionRootPath);
+                else
+                    isUpdate = true;
+
+                Logger.Info($"{(isUpdate ? "Updating" : "Adding")} {version.Type} {version.Id}");
+
+                string metaDataFilePath = version.GetMetaDataFilePath(Settings.LibraryPath);
+
+                if (!File.Exists(metaDataFilePath))
+                    File.WriteAllText(metaDataFilePath, version.MetaData);
+
+                string serverPath = Path.Combine(versionRootPath, "server.jar");
+                if (!metaOnly && version.ServerDownloadUrl != null && !File.Exists(serverPath))
+                {
+                    try
+                    {
+                        Logger.Info($"Downloading server.jar ({version.ServerDownloadSize / 1024.0 / 1024.0:F2} MB)");
+                        WebAccess.DownloadAndStoreFile(version.ServerDownloadUrl, serverPath, version.ServerDownloadSize, version.ServerDownloadSha1);
+                        Logger.Info("Download of server.jar complete");
+                    }
+                    catch (Exception e)
+                    {
+                        e.Data["File"] = serverPath;
+                        Logger.Error("Error while downloading server.jar");
+                        Logger.Exception(e);
+                    }
+                }
+
+                string clientPath = Path.Combine(versionRootPath, "client.jar");
+                if (!metaOnly && version.ClientDownloadUrl != null && !File.Exists(clientPath))
+                {
+                    try
+                    {
+                        Logger.Info($"Downloading client.jar ({version.ClientDownloadSize / 1024.0 / 1024.0:F2} MB)");
+                        WebAccess.DownloadAndStoreFile(version.ClientDownloadUrl, clientPath, version.ClientDownloadSize, version.ClientDownloadSha1);
+                        Logger.Info("Download of client.jar complete");
+                    }
+                    catch (Exception e)
+                    {
+                        e.Data["File"] = clientPath;
+                        Logger.Error("Error while downloading client.jar");
+                        Logger.Exception(e);
+                    }
+                }
+
+                processedVersions.Add(version);
+                Logger.Info($"{(isUpdate ? "Update" : "Addition")} of {version.Type} {version.Id} complete");
             }
 
-            IEnumerable<GameVersionExtended> missingVersions = launcherInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload)
+            switch (processedVersions.Count)
+            {
+                case 0:
+                    if (skipLauncherCheck)
+                        Logger.Info("No updates were required");
+                    else
+                        Logger.Info("No versions were added");
+                    break;
+                case 1:
+                    Logger.Info($"{(skipLauncherCheck ? "Updated" : "Added")} 1 version");
+                    break;
+                default:
+                    Logger.Info($"{(skipLauncherCheck ? "Updated" : "Added")} {processedVersions.Count} versions");
+                    break;
+            }
+
+            if (skipLauncherCheck)
+                Logger.Info("Library is complete");
+            else
+                Logger.Info("Library is up to date");
+        }
+
+        private IEnumerable<GameVersionExtended> GetMissingVersions(LauncherInventory expectedInventory, bool metaOnly = true)
+        {
+            IEnumerable<GameVersionExtended> missingVersions = expectedInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload)
                 .Where(version =>
                 {
                     if (!File.Exists(version.GetMetaDataFilePath(Settings.LibraryPath)))
@@ -143,72 +244,7 @@ namespace com.github.Wubbi.Librarian
                 })
                 .Select(v => new GameVersionExtended(v));
 
-            List<GameVersionExtended> addedVersions = new List<GameVersionExtended>();
-
-            foreach (GameVersionExtended version in missingVersions)
-            {
-                Logger.Info($"Updating {version.Type} {version.Id}");
-
-                string versionRootPath = Path.Combine(Settings.LibraryPath, version.LibrarySubFolder);
-
-                if (!Directory.Exists(versionRootPath))
-                    Directory.CreateDirectory(versionRootPath);
-
-                File.WriteAllText(Path.Combine(versionRootPath, version.Id + ".json"), version.MetaData);
-
-                if (!metaOnly && version.ServerDownloadUrl != null)
-                {
-                    string path = Path.Combine(versionRootPath, "server.jar");
-                    try
-                    {
-                        Logger.Info($"Downloading server.jar ({version.ServerDownloadSize / 1024.0 / 1024.0:F2} MB)");
-                        WebAccess.DownloadAndStoreFile(version.ServerDownloadUrl, path, version.ServerDownloadSize, version.ServerDownloadSha1);
-                        Logger.Info("Download of server.jar complete");
-                    }
-                    catch (Exception e)
-                    {
-                        e.Data["File"] = path;
-                        Logger.Error("Error while downloading server.jar");
-                        Logger.Exception(e);
-                    }
-                }
-
-                if (!metaOnly && version.ClientDownloadUrl != null)
-                {
-                    string path = Path.Combine(versionRootPath, "client.jar");
-                    try
-                    {
-                        Logger.Info($"Downloading client.jar ({version.ClientDownloadSize / 1024.0 / 1024.0:F2} MB)");
-                        WebAccess.DownloadAndStoreFile(version.ClientDownloadUrl, path, version.ClientDownloadSize, version.ClientDownloadSha1);
-                        Logger.Info("Download of client.jar complete");
-                    }
-                    catch (Exception e)
-                    {
-                        e.Data["File"] = path;
-                        Logger.Error("Error while downloading client.jar");
-                        Logger.Exception(e);
-                    }
-                }
-
-                addedVersions.Add(version);
-
-                Logger.Info($"Update of {version.Type} {version.Id} complete");
-            }
-
-            switch (addedVersions.Count)
-            {
-                case 0:
-                    Logger.Info("No updates were required");
-                    break;
-                case 1:
-                    Logger.Info("Added 1 missing version");
-                    break;
-                default:
-                    Logger.Info($"Added {addedVersions.Count} missing versions");
-                    break;
-            }
-
-            Logger.Info("Library is up to date");
+            return missingVersions;
         }
 
         public LauncherInventory GetLatestStoredManifest()

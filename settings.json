@@ -3,6 +3,7 @@
 	libraryPath:"G:\\Library",
 	addMissingVersions:true,
 	checkjarFiles:false,
+	maintainInventory:false,
 	tasks:
 	[
 		{

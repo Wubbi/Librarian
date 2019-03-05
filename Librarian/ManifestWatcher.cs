@@ -69,6 +69,8 @@ namespace com.github.Wubbi.Librarian
             if (liveInventory.Equals(CurrentInventory))
                 return;
 
+            Logger.Info("Detected change of launcher manifest");
+
             ChangeInLauncherManifest?.Invoke(new LauncherInventory.Diff(CurrentInventory, liveInventory));
 
             CurrentInventory = liveInventory;

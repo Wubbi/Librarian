@@ -23,15 +23,21 @@ namespace com.github.Wubbi.Librarian
         public string LibraryPath { get; }
 
         /// <summary>
-        /// If true, Librarian will trigger Actions for any missed updates since the last run before wating for updates of the live manifest
+        /// If true, Librarian will trigger Actions for any missed updates since the last run before waiting for updates of the live manifest
         /// </summary>
         public bool ProcessMissedUpdates { get; }
 
         /// <summary>
         /// If true, .jar files will be checked as part of the library update as well, not just the existence of metadata.
-        /// Also determines if a fresh Library will be filled with .jar files
+        /// Also determines if a fresh Library will be filled with .jar files and if <see cref="MaintainInventory"/> metadata files only
         /// </summary>
         public bool CheckJarFiles { get; }
+
+        /// <summary>
+        /// If true, the current newest stored manifest will be compared the existing files in the library when Librarian starts.
+        /// Missing files then are downloaded and added. Does not validate the found files, only matches their names
+        /// </summary>
+        public bool MaintainInventory { get; }
 
         /// <summary>
         /// A list af actions that execute if their filters match the current circumstances
@@ -49,6 +55,7 @@ namespace com.github.Wubbi.Librarian
 
             ProcessMissedUpdates = settings["addMissingVersions"]?.Value<bool>() ?? false;
             CheckJarFiles = settings["checkJarFiles"]?.Value<bool>() ?? false;
+            MaintainInventory = settings["maintainInventory"]?.Value<bool>() ?? false;
 
             JToken tasks = settings["tasks"];
             if (tasks is null)

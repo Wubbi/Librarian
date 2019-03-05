@@ -122,7 +122,7 @@ namespace com.github.Wubbi.Librarian
         /// <param name="libraryRootFolder">The path to the library</param>
         /// <returns>A full path to the local client.jar</returns>
         public string GetClientFilePath(string libraryRootFolder)
-            => Path.Combine(libraryRootFolder, LibrarySubFolder, "client.json");
+            => Path.Combine(libraryRootFolder, LibrarySubFolder, "client.jar");
 
         /// <summary>
         /// The full path where this versions server jar should be located in the library
@@ -130,7 +130,7 @@ namespace com.github.Wubbi.Librarian
         /// <param name="libraryRootFolder">The path to the library</param>
         /// <returns>A full path to the local server.jar</returns>
         public string GetServerFilePath(string libraryRootFolder)
-            => Path.Combine(libraryRootFolder, LibrarySubFolder, "server.json");
+            => Path.Combine(libraryRootFolder, LibrarySubFolder, "server.jar");
 
         public override bool Equals(object obj)
         {

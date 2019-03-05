@@ -21,6 +21,7 @@ Here is an example of what this file might look like:
 	libraryPath:"G:\\Library",
 	addMissingVersions:true,
 	checkjarFiles:false,
+	maintainInventory:false,
 	tasks:
 	[
 		{
@@ -93,6 +94,15 @@ The main purpose of this flag is to make Librarian check whether or not the serv
 By default only the existence of the metadata file is checked, so moving or deleting the game files does not trigger further updates of the library.  
 As a secondary function, setting this flag to *false* will prevent Librarian to dowload .jar files when it builds its library 
 for the very first time (which at the time of this writing prevents ~8 GB of data from being downloaded).
+
+---
+
+```JSONiq
+maintainInventory:false
+```
+If you occasionally "lose" your files, or just want to quickly continue a donwload that was aborted before, this flag might help you. 
+If you set it to *true* Librarian will compare the newest (stored) manifest with the files already present in your library (going purely by existing filenames) and download whatever's missing. 
+This process is affected by `checkJarFiles`!
 
 ---
 

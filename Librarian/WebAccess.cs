@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -13,8 +12,24 @@ namespace com.github.Wubbi.Librarian
     /// <summary>
     /// Responsible for handling all traffic in and out the internet
     /// </summary>
-    public static class WebAccess
+    public class WebAccess:IDisposable
     {
+        private CancellationTokenSource _cancellationTokenSource;
+
+        /// <summary>
+        /// Fires when the active download changes
+        /// </summary>
+        public event Action<object, DownloadProgressEventArgs> DownloadProgressChanged;
+
+        public static WebAccess Instance;
+
+        static WebAccess()
+        {
+            Instance=new WebAccess();
+        }
+
+        private WebAccess() { }
+
         /// <summary>
         /// Downloads a file from an url and stores it on the local filesystem
         /// </summary>
@@ -25,7 +40,7 @@ namespace com.github.Wubbi.Librarian
         /// <returns>The name of the downloaded file</returns>
         /// <exception cref="ArgumentException"><paramref name="file"/> is null or a directory but no filename could be generated from the <paramref name="url"/></exception>
         /// <exception cref="InvalidDataException">The file size or its hash do not match the expected values</exception>
-        public static string DownloadAndStoreFile(string url, string file = null, long expectedSize = 0, string sha1 = null)
+        public string DownloadAndStoreFile(string url, string file = null, long expectedSize = 0, string sha1 = null)
         {
             if (file == null || Directory.Exists(file))
             {
@@ -56,7 +71,7 @@ namespace com.github.Wubbi.Librarian
         /// <param name="sha1">The expected SHA1 hash of the file or null if the hash should not be compared</param>
         /// <returns>The content of the file as string</returns>
         /// <exception cref="InvalidDataException">The file size or its hash do not match the expected values</exception>
-        public static string DownloadFileAsString(string url, Encoding encoding = null, long expectedSize = 0, string sha1 = null)
+        public string DownloadFileAsString(string url, Encoding encoding = null, long expectedSize = 0, string sha1 = null)
         {
             byte[] downloadedFile = DownloadFile(url, expectedSize, sha1);
 
@@ -74,8 +89,10 @@ namespace com.github.Wubbi.Librarian
         /// <param name="sha1">The expected SHA1 hash of the file or null if the hash should not be compared</param>
         /// <returns>The file as byte array</returns>
         /// <exception cref="InvalidDataException">The file size or its hash do not match the expected values</exception>
-        public static byte[] DownloadFile(string url, long expectedSize = 0, string sha1 = null)
+        public byte[] DownloadFile(string url, long expectedSize = 0, string sha1 = null)
         {
+            _cancellationTokenSource = new CancellationTokenSource();
+
             byte[] downloadedData;
             using (WebClient webClient = new WebClient())
             {
@@ -83,19 +100,27 @@ namespace com.github.Wubbi.Librarian
                 int progress = 0;
                 webClient.DownloadProgressChanged += (s, e) =>
                 {
-                    if ((DateTime.Now - timestamp).TotalSeconds < 5)
+                    if (e.ProgressPercentage == progress)
                         return;
 
-                    if (e.ProgressPercentage < progress + 10 && (DateTime.Now - timestamp).TotalSeconds < 15)
-                        return;
-
-                    timestamp = DateTime.Now;
                     progress = e.ProgressPercentage;
-
-                    Logger.Info($"Download progress: {progress:###.}%");
+                    DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, progress, DownloadProgressEventArgs.DownloadState.Active));
                 };
 
-                downloadedData = webClient.DownloadDataTaskAsync(url).Result;
+                DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, 0, DownloadProgressEventArgs.DownloadState.Starting));
+
+                Task<byte[]> downloadDataTaskAsync = webClient.DownloadDataTaskAsync(url);
+
+                downloadDataTaskAsync.Wait(_cancellationTokenSource.Token);
+
+                if (downloadDataTaskAsync.IsCanceled)
+                {
+                    DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, progress, DownloadProgressEventArgs.DownloadState.Canceled));
+                    return new byte[0];
+                }
+
+                downloadedData = downloadDataTaskAsync.Result;
+                DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, 100, DownloadProgressEventArgs.DownloadState.Finished));
             }
 
             if (expectedSize > 0L && downloadedData.LongLength != expectedSize)
@@ -105,6 +130,20 @@ namespace com.github.Wubbi.Librarian
                 throw new InvalidDataException("The SHA1 hash of the download does not match the expected one");
 
             return downloadedData;
+        }
+
+        /// <summary>
+        /// Stops the currently ongoing downloads
+        /// </summary>
+        public void CancelActiveDownload()
+        {
+            if(_cancellationTokenSource is null)
+                return;
+
+            if(_cancellationTokenSource.IsCancellationRequested)
+                return;
+
+            _cancellationTokenSource.Cancel();
         }
 
         /// <summary>
@@ -119,6 +158,35 @@ namespace com.github.Wubbi.Librarian
                 byte[] sha1 = sha1Managed.ComputeHash(data);
                 return string.Join("", sha1.Select(b => b.ToString("x2")));
             }
+        }
+
+        public void Dispose()
+        {
+            _cancellationTokenSource?.Dispose();
+        }
+    }
+
+    public class DownloadProgressEventArgs : EventArgs
+    {
+        public string Url { get; }
+
+        public int ProgressPercentage { get; }
+
+        public DownloadState State { get; }
+
+        public DownloadProgressEventArgs(string url, int progressPercentage, DownloadState state)
+        {
+            Url = url;
+            ProgressPercentage = progressPercentage;
+            State = state;
+        }
+
+        public enum DownloadState
+        {
+            Starting,
+            Active,
+            Finished,
+            Canceled
         }
     }
 }

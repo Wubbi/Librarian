@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 
 namespace com.github.Wubbi.Librarian
 {
@@ -23,15 +24,23 @@ namespace com.github.Wubbi.Librarian
         /// </summary>
         private readonly ManifestWatcher _manifestWatcher;
 
+        private readonly ConsolePresenter _consolePresenter;
+
         /// <summary>
         /// The settings this <see cref="Librarian"/> was initialized with
         /// </summary>
         public Settings Settings { get; }
 
-        public Librarian(string settingsFile)
+        public Librarian(string settingsFile, bool outputToConsole)
         {
             if (!File.Exists(settingsFile))
                 throw new ArgumentException($"Can't find settings \"{settingsFile}\"", nameof(settingsFile));
+
+            if (outputToConsole)
+            {
+                _consolePresenter = new ConsolePresenter();
+                Logger.NewLogEntry += _consolePresenter.AddLogEntry;
+            }
 
             Settings = new Settings(File.ReadAllText(settingsFile));
 
@@ -47,13 +56,31 @@ namespace com.github.Wubbi.Librarian
             _manifestWatcher.ChangeInLauncherManifest += diff => _launcherManifestUpdates.Add(diff);
 
             Logger.Info($"Librarian {Assembly.GetExecutingAssembly().GetName().Version} initialized");
+
+            Console.CancelKeyPress += ConsoleOnCancelKeyPress;
+        }
+
+        private void ConsoleOnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        {
+            e.Cancel = true;
+            Stop();
         }
 
         public void Dispose()
         {
+            Console.CancelKeyPress -= ConsoleOnCancelKeyPress;
+
             Logger.Info("Disposing Librarian");
+            Stop();
+
             _manifestWatcher?.Dispose();
             _launcherManifestUpdates?.Dispose();
+
+            if (_consolePresenter != null)
+            {
+                Logger.NewLogEntry -= _consolePresenter.AddLogEntry;
+                _consolePresenter.Dispose();
+            }
         }
 
         /// <summary>
@@ -62,6 +89,12 @@ namespace com.github.Wubbi.Librarian
         public void Run()
         {
             LauncherInventory latestStoredManifest = GetLatestStoredManifest();
+
+            if (_consolePresenter != null && latestStoredManifest!=null)
+            {
+                _consolePresenter.LatestRelease = latestStoredManifest.LatestReleaseId;
+                _consolePresenter.LatestSnapshot = latestStoredManifest.LatestSnapshotId;
+            }
 
             if (latestStoredManifest is null)
             {
@@ -81,6 +114,13 @@ namespace com.github.Wubbi.Librarian
             foreach (LauncherInventory.Diff update in _launcherManifestUpdates.GetConsumingEnumerable())
             {
                 Logger.Info("Processing update of manifest");
+
+                if (_consolePresenter != null && latestStoredManifest != null)
+                {
+                    _consolePresenter.LatestRelease = update.NewInventory.LatestReleaseId;
+                    _consolePresenter.LatestSnapshot = update.NewInventory.LatestSnapshotId;
+                }
+
                 List<int> completedIds = new List<int>();
 
                 TriggerActions(update, false, ref completedIds);
@@ -92,7 +132,22 @@ namespace com.github.Wubbi.Librarian
                 Logger.Info("Update of manifest processed. Continuing periodic manifest watch");
             }
 
-            Logger.Error("Librarian stopped its run without being triggered to do so");
+            Logger.Info("Librarian stopped its run");
+        }
+
+        /// <summary>
+        /// Cancels active downloads and manifest watch
+        /// </summary>
+        public void Stop()
+        {
+            if(_launcherManifestUpdates.IsCompleted)
+                return;
+
+            Logger.Info("Stopping Librarian");
+
+            WebAccess.Instance.CancelActiveDownload();
+
+            _launcherManifestUpdates.CompleteAdding();
         }
 
         /// <summary>
@@ -103,6 +158,11 @@ namespace com.github.Wubbi.Librarian
         /// <returns></returns>
         private void UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false, bool skipLauncherCheck = false)
         {
+            if (_consolePresenter != null)
+            {
+                _consolePresenter.LastLibraryUpdate=DateTime.UtcNow.ToString("u");
+            }
+
             if (skipLauncherCheck)
             {
                 Logger.Info("Comparing manifest to current library");
@@ -167,7 +227,7 @@ namespace com.github.Wubbi.Librarian
                     try
                     {
                         Logger.Info($"Downloading server.jar ({version.ServerDownloadSize / 1024.0 / 1024.0:F2} MB)");
-                        WebAccess.DownloadAndStoreFile(version.ServerDownloadUrl, serverPath, version.ServerDownloadSize, version.ServerDownloadSha1);
+                        WebAccess.Instance.DownloadAndStoreFile(version.ServerDownloadUrl, serverPath, version.ServerDownloadSize, version.ServerDownloadSha1);
                         Logger.Info("Download of server.jar complete");
                     }
                     catch (Exception e)
@@ -184,7 +244,7 @@ namespace com.github.Wubbi.Librarian
                     try
                     {
                         Logger.Info($"Downloading client.jar ({version.ClientDownloadSize / 1024.0 / 1024.0:F2} MB)");
-                        WebAccess.DownloadAndStoreFile(version.ClientDownloadUrl, clientPath, version.ClientDownloadSize, version.ClientDownloadSha1);
+                        WebAccess.Instance.DownloadAndStoreFile(version.ClientDownloadUrl, clientPath, version.ClientDownloadSize, version.ClientDownloadSha1);
                         Logger.Info("Download of client.jar complete");
                     }
                     catch (Exception e)

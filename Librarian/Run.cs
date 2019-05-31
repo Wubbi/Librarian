@@ -26,9 +26,6 @@ namespace com.github.Wubbi.Librarian
                     }
                 }
 
-                if (doConsoleOutput)
-                    Logger.NewLogEntry += Console.WriteLine;
-
                 if (!File.Exists(settingsFile))
                     File.WriteAllText(settingsFile,
                         @"
@@ -44,9 +41,10 @@ namespace com.github.Wubbi.Librarian
                     "
                     );
 
-                Librarian librarian = new Librarian(settingsFile);
-
-                librarian.Run();
+                using (Librarian librarian = new Librarian(settingsFile, doConsoleOutput))
+                { 
+                    librarian.Run();
+                }
             }
             catch (Exception e)
             {

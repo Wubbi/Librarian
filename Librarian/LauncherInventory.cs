@@ -44,7 +44,7 @@ namespace com.github.Wubbi.Librarian
         public LauncherInventory(string manifestJson = null)
         {
             if (manifestJson == null)
-                manifestJson = WebAccess.DownloadFileAsString(VersionInfoLocation);
+                manifestJson = WebAccess.Instance.DownloadFileAsString(VersionInfoLocation);
 
             Manifest = manifestJson;
 

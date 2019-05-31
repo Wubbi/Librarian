@@ -10,7 +10,7 @@ namespace com.github.Wubbi.Librarian
     {
         private static string _logFilePath;
 
-        public static event Action<string> NewLogEntry;
+        public static event Action<DateTime, string> NewLogEntry;
 
         public static void SetLogFilePath(string path)
         {
@@ -29,13 +29,17 @@ namespace com.github.Wubbi.Librarian
 
         private static void Log(string data)
         {
+
+            DateTime utcNow = DateTime.UtcNow;
+
+            NewLogEntry?.Invoke(utcNow, data);
+
             data = data.Replace(Environment.NewLine, Environment.NewLine + "\t");
 
-            data = $"[{DateTime.Now.ToUniversalTime():u}] {data}";
+            data = $"[{utcNow:u}] {data}";
 
             Debug.WriteLine(data);
 
-            NewLogEntry?.Invoke(data);
 
             if (_logFilePath != null)
                 File.AppendAllText(_logFilePath, data + Environment.NewLine, Encoding.UTF8);

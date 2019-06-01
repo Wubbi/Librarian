@@ -97,17 +97,19 @@ namespace com.github.Wubbi.Librarian
             using (WebClient webClient = new WebClient())
             {
                 DateTime timestamp = DateTime.Now;
-                int progress = 0;
+                long received = 0;
+                long total = 0;
                 webClient.DownloadProgressChanged += (s, e) =>
                 {
-                    if (e.ProgressPercentage == progress)
+                    if (e.BytesReceived == received && e.TotalBytesToReceive == total)
                         return;
 
-                    progress = e.ProgressPercentage;
-                    DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, progress, DownloadProgressEventArgs.DownloadState.Active));
+                    received = e.BytesReceived;
+                    total = e.TotalBytesToReceive;
+                    DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, received, total, DownloadProgressEventArgs.DownloadState.Active));
                 };
 
-                DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, 0, DownloadProgressEventArgs.DownloadState.Starting));
+                DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, received, total, DownloadProgressEventArgs.DownloadState.Starting));
 
                 Task<byte[]> downloadDataTaskAsync = webClient.DownloadDataTaskAsync(url);
 
@@ -121,12 +123,12 @@ namespace com.github.Wubbi.Librarian
 
                 if (downloadDataTaskAsync.IsCanceled)
                 {
-                    DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, progress, DownloadProgressEventArgs.DownloadState.Canceled));
+                    DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, received, total, DownloadProgressEventArgs.DownloadState.Canceled));
                     return new byte[0];
                 }
 
                 downloadedData = downloadDataTaskAsync.Result;
-                DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, 100, DownloadProgressEventArgs.DownloadState.Finished));
+                DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, received, total, DownloadProgressEventArgs.DownloadState.Finished));
             }
 
             if (expectedSize > 0L && downloadedData.LongLength != expectedSize)
@@ -178,12 +180,18 @@ namespace com.github.Wubbi.Librarian
 
         public int ProgressPercentage { get; }
 
+        public long Received { get; }
+
+        public long Total { get; }
+
         public DownloadState State { get; }
 
-        public DownloadProgressEventArgs(string url, int progressPercentage, DownloadState state)
+        public DownloadProgressEventArgs(string url, long received, long total, DownloadState state)
         {
             Url = url;
-            ProgressPercentage = progressPercentage;
+            ProgressPercentage = total > 0 && received > 0 ? (int)(received * 100 / total) : 0;
+            Received = received;
+            Total = total;
             State = state;
         }
 

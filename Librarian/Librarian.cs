@@ -60,6 +60,12 @@ namespace com.github.Wubbi.Librarian
             Logger.Info($"Librarian {Assembly.GetExecutingAssembly().GetName().Version} initialized");
 
             Console.CancelKeyPress += ConsoleOnCancelKeyPress;
+
+            if (_consolePresenter != null)
+            {
+                WebAccess.Instance.DownloadProgressChanged += (o, args) => _consolePresenter.DownloadUpdate = args;
+                _manifestWatcher.CheckedManifest += time => _consolePresenter.NextCheck = time.ToString("u");
+            }
         }
 
         private void ConsoleOnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
@@ -171,6 +177,7 @@ namespace com.github.Wubbi.Librarian
         /// <returns></returns>
         private void UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false, bool skipLauncherCheck = false)
         {
+            metaOnly = false;
             if (_consolePresenter != null)
             {
                 _consolePresenter.LastLibraryUpdate = DateTime.UtcNow.ToString("u");
@@ -310,6 +317,9 @@ namespace com.github.Wubbi.Librarian
             IEnumerable<GameVersionExtended> missingVersions = expectedInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload)
                 .Where(version =>
                 {
+                    if (version.Type != GameVersion.BuildType.Release)
+                        return false;
+
                     if (!File.Exists(version.GetMetaDataFilePath(Settings.LibraryPath)))
                         return true;
 

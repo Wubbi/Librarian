@@ -24,6 +24,8 @@ namespace com.github.Wubbi.Librarian
             }
         }
 
+        public bool Frozen { get; set; }
+
         private readonly List<CanvasElement> _elements;
 
         private readonly ConsoleSettings _initialSettings;
@@ -33,8 +35,12 @@ namespace com.github.Wubbi.Librarian
 
         private bool _disposed;
 
+        private readonly object _accessLock;
+
         public ConsoleCanvas(int width, int height, string title = null)
         {
+            _accessLock = new object();
+
             _elements = new List<CanvasElement>();
             _initialSettings = new ConsoleSettings();
 
@@ -61,24 +67,30 @@ namespace com.github.Wubbi.Librarian
 
         public T RegisterElement<T>(T element) where T : CanvasElement
         {
-            if (element is null)
-                throw new ArgumentNullException(nameof(element));
+            lock (_accessLock)
+            {
+                if (element is null)
+                    throw new ArgumentNullException(nameof(element));
 
-            if (_elements.Any(e => e.Name == element.Name))
-                throw new ArgumentException($"Canvas already has element named \"{element.Name}\"");
+                if (_elements.Any(e => e.Name == element.Name))
+                    throw new ArgumentException($"Canvas already has element named \"{element.Name}\"");
 
-            _elements.Add(element);
+                _elements.Add(element);
 
-            element.Draw(this);
+                element.Draw(this);
 
-            element.RedrawRequired += OnRedrawRequired;
+                element.RedrawRequired += OnRedrawRequired;
 
-            return element;
+                return element;
+            }
         }
 
         public CanvasElement GetElement(string name)
         {
-            return _elements.FirstOrDefault(e => e.Name == name) ?? throw new ArgumentException($"No element named \"{name}\" found");
+            lock (_accessLock)
+            {
+                return _elements.FirstOrDefault(e => e.Name == name) ?? throw new ArgumentException($"No element named \"{name}\" found");
+            }
         }
 
         public void Dispose()
@@ -88,26 +100,35 @@ namespace com.github.Wubbi.Librarian
 
             _disposed = true;
 
-            foreach (CanvasElement element in _elements)
-                element.RedrawRequired -= OnRedrawRequired;
+            lock (_accessLock)
+            {
+                foreach (CanvasElement element in _elements)
+                    element.RedrawRequired -= OnRedrawRequired;
 
-            _elements.Clear();
+                _elements.Clear();
 
-            Console.SetCursorPosition(Width - 1, _canvasBufferTop + Height - 1);
-            Console.WriteLine();
+                Console.SetCursorPosition(Width - 1, _canvasBufferTop + Height - 1);
+                Console.WriteLine();
 
-            _initialSettings.ResetConsoleToSettings();
+                _initialSettings.ResetConsoleToSettings();
 
-            while (Console.KeyAvailable)
-                Console.ReadKey(true);
+                while (Console.KeyAvailable)
+                    Console.ReadKey(true);
+            }
         }
 
         private void OnRedrawRequired(CanvasElement sender, bool elementOnly)
         {
-            foreach (CanvasElement element in _elements.OrderBy(e => e.Visible).SkipWhile(e => elementOnly && e.Name != sender.Name))
-                element.Draw(this);
+            lock (_accessLock)
+            {
+                if (Frozen)
+                    return;
 
-            Console.SetCursorPosition(Width - 1, _canvasBufferTop + Height - 1);
+                foreach (CanvasElement element in _elements.OrderBy(e => e.Visible).SkipWhile(e => elementOnly && e.Name != sender?.Name))
+                    element.Draw(this);
+
+                Console.SetCursorPosition(Width - 1, _canvasBufferTop + Height - 1);
+            }
         }
 
         public void Redraw()
@@ -243,6 +264,11 @@ namespace com.github.Wubbi.Librarian
 
                     InvokeRedraw(true);
                 }
+            }
+
+            public Text(string name, int top, int left, string value, Alignment alignment = Alignment.Left, char background = ' ') : this(name, top, left, value?.Length ?? 0, alignment, background)
+            {
+                _value = value;
             }
 
             public Text(string name, int top, int left, int width, Alignment alignment = Alignment.Left, char background = ' ') : base(name)

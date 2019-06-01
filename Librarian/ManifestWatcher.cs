@@ -8,10 +8,16 @@ namespace com.github.Wubbi.Librarian
     /// </summary>
     public class ManifestWatcher : IDisposable
     {
+        private static readonly TimeSpan NegativeOneMilliseconds = TimeSpan.FromMilliseconds(-1);
+
         /// <summary>
         /// The timer which triggers a comparison of the known with the current manifest
         /// </summary>
         private readonly Timer _timer;
+
+        private TimeSpan _delay;
+
+        public DateTime NextCheck { get; private set; }
 
         /// <summary>
         /// The current <see cref="LauncherInventory"/>
@@ -26,7 +32,9 @@ namespace com.github.Wubbi.Librarian
         {
             CurrentInventory = initialComparison ?? new LauncherInventory();
 
-            _timer = new Timer(CheckLauncherManifest, null, TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(-1));
+            NextCheck = DateTime.MaxValue;
+            _delay = NegativeOneMilliseconds;
+            _timer = new Timer(CheckLauncherManifest, null, NegativeOneMilliseconds, NegativeOneMilliseconds);
         }
 
         public void Dispose()
@@ -39,6 +47,8 @@ namespace com.github.Wubbi.Librarian
         /// </summary>
         public event Action<LauncherInventory.Diff> ChangeInLauncherManifest;
 
+        public event Action<DateTime> CheckedManifest;
+
         /// <summary>
         /// Starts (or resets) the watcher with a specific time interval
         /// </summary>
@@ -46,7 +56,11 @@ namespace com.github.Wubbi.Librarian
         public void Start(TimeSpan interval)
         {
             lock (_timer)
-                _timer.Change(TimeSpan.Zero, interval);
+            {
+                _delay = interval;
+                _timer.Change(TimeSpan.Zero, NegativeOneMilliseconds);
+                NextCheck = DateTime.UtcNow;
+            }
         }
 
         /// <summary>
@@ -55,7 +69,11 @@ namespace com.github.Wubbi.Librarian
         public void Stop()
         {
             lock (_timer)
-                _timer.Change(TimeSpan.FromMilliseconds(-1), TimeSpan.FromMilliseconds(-1));
+            {
+                _delay = NegativeOneMilliseconds;
+                _timer.Change(NegativeOneMilliseconds, NegativeOneMilliseconds);
+                NextCheck = DateTime.MaxValue;
+            }
         }
 
         /// <summary>
@@ -65,6 +83,17 @@ namespace com.github.Wubbi.Librarian
         private void CheckLauncherManifest(object state)
         {
             LauncherInventory liveInventory = new LauncherInventory();
+
+            lock (_timer)
+            {
+                if (_delay <= TimeSpan.Zero)
+                    return;
+
+                _timer.Change(_delay, NegativeOneMilliseconds);
+                NextCheck = DateTime.UtcNow + _delay;
+            }
+
+            CheckedManifest?.Invoke(NextCheck);
 
             if (liveInventory.Equals(CurrentInventory))
                 return;

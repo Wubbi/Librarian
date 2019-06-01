@@ -26,6 +26,8 @@ namespace com.github.Wubbi.Librarian
 
         private readonly ConsolePresenter _consolePresenter;
 
+        private bool _running;
+
         /// <summary>
         /// The settings this <see cref="Librarian"/> was initialized with
         /// </summary>
@@ -70,7 +72,6 @@ namespace com.github.Wubbi.Librarian
         {
             Console.CancelKeyPress -= ConsoleOnCancelKeyPress;
 
-            Logger.Info("Disposing Librarian");
             Stop();
 
             _manifestWatcher?.Dispose();
@@ -88,9 +89,11 @@ namespace com.github.Wubbi.Librarian
         /// </summary>
         public void Run()
         {
+            _running = true;
+
             LauncherInventory latestStoredManifest = GetLatestStoredManifest();
 
-            if (_consolePresenter != null && latestStoredManifest!=null)
+            if (_consolePresenter != null && latestStoredManifest != null)
             {
                 _consolePresenter.LatestRelease = latestStoredManifest.LatestReleaseId;
                 _consolePresenter.LatestSnapshot = latestStoredManifest.LatestSnapshotId;
@@ -100,11 +103,16 @@ namespace com.github.Wubbi.Librarian
             {
                 Logger.Info("Empty library, setting up initial library state");
                 UpdateLibrary(_manifestWatcher.CurrentInventory, !Settings.CheckJarFiles);
-                Logger.Info("Library set up");
+                if (_running)
+                    Logger.Info("Library set up");
+                else
+                    return;
             }
             else if (Settings.MaintainInventory)
             {
                 UpdateLibrary(latestStoredManifest, !Settings.CheckJarFiles, true);
+                if (!_running)
+                    return;
             }
 
             Logger.Info("Starting periodic manifest watch");
@@ -129,7 +137,10 @@ namespace com.github.Wubbi.Librarian
 
                 TriggerActions(update, true, ref completedIds);
 
-                Logger.Info("Update of manifest processed. Continuing periodic manifest watch");
+                if (_running)
+                    Logger.Info("Update of manifest processed. Continuing periodic manifest watch");
+                else
+                    break;
             }
 
             Logger.Info("Librarian stopped its run");
@@ -140,8 +151,10 @@ namespace com.github.Wubbi.Librarian
         /// </summary>
         public void Stop()
         {
-            if(_launcherManifestUpdates.IsCompleted)
+            if (!_running)
                 return;
+
+            _running = false;
 
             Logger.Info("Stopping Librarian");
 
@@ -160,7 +173,7 @@ namespace com.github.Wubbi.Librarian
         {
             if (_consolePresenter != null)
             {
-                _consolePresenter.LastLibraryUpdate=DateTime.UtcNow.ToString("u");
+                _consolePresenter.LastLibraryUpdate = DateTime.UtcNow.ToString("u");
             }
 
             if (skipLauncherCheck)
@@ -198,13 +211,12 @@ namespace com.github.Wubbi.Librarian
                 }
             }
 
-            IEnumerable<GameVersionExtended> missingVersions = GetMissingVersions(launcherInventory, metaOnly);
+            IEnumerable<GameVersionExtended> missingVersions = GetMissingVersions(launcherInventory, metaOnly, Settings.CheckJarFiles);
 
             List<GameVersionExtended> processedVersions = new List<GameVersionExtended>();
 
             foreach (GameVersionExtended version in missingVersions)
             {
-
                 string versionRootPath = Path.Combine(Settings.LibraryPath, version.LibrarySubFolder);
 
                 bool isUpdate = false;
@@ -221,6 +233,12 @@ namespace com.github.Wubbi.Librarian
                 if (!File.Exists(metaDataFilePath))
                     File.WriteAllText(metaDataFilePath, version.MetaData);
 
+                if (!_running)
+                {
+                    Logger.Info($"{(isUpdate ? "Update" : "Addition")} of {version.Type} {version.Id} was canceled");
+                    return;
+                }
+
                 string serverPath = Path.Combine(versionRootPath, "server.jar");
                 if (!metaOnly && version.ServerDownloadUrl != null && !File.Exists(serverPath))
                 {
@@ -236,6 +254,12 @@ namespace com.github.Wubbi.Librarian
                         Logger.Error("Error while downloading server.jar");
                         Logger.Exception(e);
                     }
+                }
+
+                if (!_running)
+                {
+                    Logger.Info($"{(isUpdate ? "Update" : "Addition")} of {version.Type} {version.Id} was canceled");
+                    return;
                 }
 
                 string clientPath = Path.Combine(versionRootPath, "client.jar");
@@ -281,7 +305,7 @@ namespace com.github.Wubbi.Librarian
                 Logger.Info("Library is up to date");
         }
 
-        private IEnumerable<GameVersionExtended> GetMissingVersions(LauncherInventory expectedInventory, bool metaOnly = true)
+        private IEnumerable<GameVersionExtended> GetMissingVersions(LauncherInventory expectedInventory, bool metaOnly = true, bool checkFileSize = false)
         {
             IEnumerable<GameVersionExtended> missingVersions = expectedInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload)
                 .Where(version =>
@@ -294,11 +318,39 @@ namespace com.github.Wubbi.Librarian
 
                     GameVersionExtended expected = new GameVersionExtended(version, File.ReadAllText(version.GetMetaDataFilePath(Settings.LibraryPath)));
 
-                    if (expected.ClientDownloadUrl != null && !File.Exists(version.GetClientFilePath(Settings.LibraryPath)))
-                        return true;
+                    if (expected.ClientDownloadUrl != null)
+                    {
+                        if (!File.Exists(version.GetClientFilePath(Settings.LibraryPath)))
+                            return true;
 
-                    if (expected.ServerDownloadUrl != null && !File.Exists(version.GetServerFilePath(Settings.LibraryPath)))
-                        return true;
+                        if (checkFileSize && expected.ClientDownloadSize > 0)
+                        {
+                            FileInfo fileInfo = new FileInfo(version.GetClientFilePath(Settings.LibraryPath));
+
+                            if (fileInfo.Length != expected.ClientDownloadSize)
+                            {
+                                fileInfo.Delete();
+                                return true;
+                            }
+                        }
+                    }
+
+                    if (expected.ServerDownloadUrl != null)
+                    {
+                        if (!File.Exists(version.GetServerFilePath(Settings.LibraryPath)))
+                            return true;
+
+                        if (checkFileSize && expected.ServerDownloadSize > 0)
+                        {
+                            FileInfo fileInfo = new FileInfo(version.GetServerFilePath(Settings.LibraryPath));
+
+                            if (fileInfo.Length != expected.ServerDownloadSize)
+                            {
+                                fileInfo.Delete();
+                                return true;
+                            }
+                        }
+                    }
 
                     return false;
                 })
@@ -337,7 +389,7 @@ namespace com.github.Wubbi.Librarian
             {
                 actionsPerformed = false;
 
-                for (int i = 0; i < actionsToRun.Count; ++i)
+                for (int i = 0; i < actionsToRun.Count && _running; ++i)
                 {
                     if (!actionsToRun[i].ConditionsFulfilled(inventoryUpdate, completedActionIds, downloadsComplete))
                         continue;

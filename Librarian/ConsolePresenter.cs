@@ -39,23 +39,28 @@ namespace com.github.Wubbi.Librarian
 
         public ConsolePresenter()
         {
-            _canvas = new ConsoleCanvas(60, 16);
+            _canvas = new ConsoleCanvas(60, 19);
 
-            _canvas.RegisterElement(new ConsoleCanvas.Rect("Separator", 2, 0, 9, 59, '+', 1));
-            _canvas.RegisterElement(new ConsoleCanvas.Rect("Border", 0, 0, 15, 59, '#', 1));
+            _canvas.RegisterElement(new ConsoleCanvas.Rect("Separator", 8, 0, 14, _canvas.Width - 1, '-', 1));
+            _canvas.RegisterElement(new ConsoleCanvas.Rect("Border", 0, 0, _canvas.Height-1, _canvas.Width-1, '#', 1));
 
             _canvas.RegisterElement(new ConsoleCanvas.Text("Headline", 1, 1, 58, ConsoleCanvas.Alignment.Center))
                 .Value = $"Librarian v{Assembly.GetExecutingAssembly().GetName().Version}";
-            _canvas.RegisterElement(new ConsoleCanvas.Text("LastRelease", 4, 6, 30, ConsoleCanvas.Alignment.Left, '.'))
+            _canvas.RegisterElement(new ConsoleCanvas.Text("LastRelease", 3, 6, 29, ConsoleCanvas.Alignment.Left, '.'))
                 .Value="Latest Release";
-            _canvas.RegisterElement(new ConsoleCanvas.Text("LastSnapshot", 5, 6, 30, ConsoleCanvas.Alignment.Left, '.'))
+            _canvas.RegisterElement(new ConsoleCanvas.Text("LastSnapshot", 4, 6, 29, ConsoleCanvas.Alignment.Left, '.'))
                 .Value="Latest Snapshot";
-            _canvas.RegisterElement(new ConsoleCanvas.Text("LastUpdate", 7, 6, 30, ConsoleCanvas.Alignment.Left, '.'))
+            _canvas.RegisterElement(new ConsoleCanvas.Text("LastUpdate", 6, 6, 29, ConsoleCanvas.Alignment.Left, '.'))
                 .Value="Last library update";
 
-            _latestRelease = _canvas.RegisterElement(new ConsoleCanvas.Text("LastReleaseValue", 4, 35, 20));
-            _latestSnapshot = _canvas.RegisterElement(new ConsoleCanvas.Text("LastSnapshotValue", 5, 35, 20));
-            _lastLibraryUpdate = _canvas.RegisterElement(new ConsoleCanvas.Text("LastUpdateValue", 7, 35, 20));
+            _canvas.RegisterElement(new ConsoleCanvas.Text("Log", 8, 4, 5))
+                .Value = " Log ";
+            _canvas.RegisterElement(new ConsoleCanvas.Text("Status", 14, 4, 8))
+                .Value = " Status ";
+
+            _latestRelease = _canvas.RegisterElement(new ConsoleCanvas.Text("LastReleaseValue", 3, 35, 20));
+            _latestSnapshot = _canvas.RegisterElement(new ConsoleCanvas.Text("LastSnapshotValue", 4, 35, 20));
+            _lastLibraryUpdate = _canvas.RegisterElement(new ConsoleCanvas.Text("LastUpdateValue", 6, 35, 20));
 
             LatestRelease = "unknown";
             LatestSnapshot = "unknown";
@@ -63,7 +68,7 @@ namespace com.github.Wubbi.Librarian
 
             _logEntries=new List<ConsoleCanvas.Text>();
             for (int i = 0; i < 5; ++i)
-                _logEntries.Add(_canvas.RegisterElement(new ConsoleCanvas.Text("LogEntry#"+i,10+i,2,57)));
+                _logEntries.Add(_canvas.RegisterElement(new ConsoleCanvas.Text("LogEntry#"+i,9+i,2,57)));
 
             _logCounter = 0;
 

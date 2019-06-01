@@ -104,7 +104,7 @@ namespace com.github.Wubbi.Librarian
 
         private void OnRedrawRequired(CanvasElement sender, bool elementOnly)
         {
-            foreach (CanvasElement element in _elements.SkipWhile(e => elementOnly && e.Name != sender.Name))
+            foreach (CanvasElement element in _elements.OrderBy(e => e.Visible).SkipWhile(e => elementOnly && e.Name != sender.Name))
                 element.Draw(this);
 
             Console.SetCursorPosition(Width - 1, _canvasBufferTop + Height - 1);
@@ -116,18 +116,34 @@ namespace com.github.Wubbi.Librarian
             Console.Title = _title;
         }
 
-        public class CanvasElement
+        public abstract class CanvasElement
         {
+            private bool _visible;
             public event Action<CanvasElement, bool> RedrawRequired;
 
             public string Name { get; }
 
+            public bool Visible
+            {
+                get => _visible;
+                set
+                {
+                    if (_visible == value)
+                        return;
+
+                    _visible = value;
+
+                    InvokeRedraw(false);
+                }
+            }
+
             protected CanvasElement(string name)
             {
                 Name = name;
+                Visible = true;
             }
 
-            public virtual void Draw(ConsoleCanvas hostCanvas) { }
+            public abstract void Draw(ConsoleCanvas hostCanvas);
 
             protected void InvokeRedraw(bool elementOnly)
             {
@@ -243,40 +259,47 @@ namespace com.github.Wubbi.Librarian
             {
                 string display;
 
-                if (Value.Length > Width)
+                if (Visible)
                 {
-                    switch (Alignment)
+                    if (Value.Length > Width)
                     {
-                        case Alignment.Right:
-                            display = Value.Substring(Value.Length - Width);
-                            break;
-                        case Alignment.Center:
-                            display = Value.Substring((Value.Length - Width) / 2);
-                            break;
-                        default:
-                            display = Value.Substring(0, Width);
-                            break;
+                        switch (Alignment)
+                        {
+                            case Alignment.Right:
+                                display = Value.Substring(Value.Length - Width);
+                                break;
+                            case Alignment.Center:
+                                display = Value.Substring((Value.Length - Width) / 2);
+                                break;
+                            default:
+                                display = Value.Substring(0, Width);
+                                break;
+                        }
                     }
-                }
-                else if (Value.Length < Width)
-                {
-                    switch (Alignment)
+                    else if (Value.Length < Width)
                     {
-                        case Alignment.Right:
-                            display = Value.PadLeft(Width, Background);
-                            break;
-                        case Alignment.Center:
-                            display = Value.PadLeft(Value.Length + (Width - Value.Length) / 2, Background);
-                            display = display.PadRight(Width, Background);
-                            break;
-                        default:
-                            display = Value.PadRight(Width, Background);
-                            break;
+                        switch (Alignment)
+                        {
+                            case Alignment.Right:
+                                display = Value.PadLeft(Width, Background);
+                                break;
+                            case Alignment.Center:
+                                display = Value.PadLeft(Value.Length + (Width - Value.Length) / 2, Background);
+                                display = display.PadRight(Width, Background);
+                                break;
+                            default:
+                                display = Value.PadRight(Width, Background);
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        display = Value;
                     }
                 }
                 else
                 {
-                    display = Value;
+                    display = new string(' ', Width);
                 }
 
                 Console.SetCursorPosition(Left, hostCanvas._canvasBufferTop + Top);
@@ -391,11 +414,13 @@ namespace com.github.Wubbi.Librarian
 
             public override void Draw(ConsoleCanvas hostCanvas)
             {
+                char filler = Visible ? Filler : ' ';
+
                 for (int i = Top; i <= Bottom; ++i)
                 {
                     if (Border > 0 && i - Top > Border - 1 && Bottom - i > Border - 1 && Right - Left + 1 > 2 * Border)
                     {
-                        string filling = new string(Filler, Border);
+                        string filling = new string(filler, Border);
 
                         Console.SetCursorPosition(Left, hostCanvas._canvasBufferTop + i);
                         Console.Write(filling);
@@ -406,7 +431,7 @@ namespace com.github.Wubbi.Librarian
                     else
                     {
                         Console.SetCursorPosition(Left, hostCanvas._canvasBufferTop + i);
-                        Console.Write(new string(Filler, Right - Left + 1));
+                        Console.Write(new string(filler, Right - Left + 1));
                     }
                 }
             }

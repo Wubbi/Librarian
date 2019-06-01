@@ -12,7 +12,7 @@ namespace com.github.Wubbi.Librarian
     /// <summary>
     /// Responsible for handling all traffic in and out the internet
     /// </summary>
-    public class WebAccess:IDisposable
+    public class WebAccess : IDisposable
     {
         private CancellationTokenSource _cancellationTokenSource;
 
@@ -25,7 +25,7 @@ namespace com.github.Wubbi.Librarian
 
         static WebAccess()
         {
-            Instance=new WebAccess();
+            Instance = new WebAccess();
         }
 
         private WebAccess() { }
@@ -111,7 +111,13 @@ namespace com.github.Wubbi.Librarian
 
                 Task<byte[]> downloadDataTaskAsync = webClient.DownloadDataTaskAsync(url);
 
-                downloadDataTaskAsync.Wait(_cancellationTokenSource.Token);
+                try
+                {
+                    downloadDataTaskAsync.Wait(_cancellationTokenSource.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                }
 
                 if (downloadDataTaskAsync.IsCanceled)
                 {
@@ -137,10 +143,10 @@ namespace com.github.Wubbi.Librarian
         /// </summary>
         public void CancelActiveDownload()
         {
-            if(_cancellationTokenSource is null)
+            if (_cancellationTokenSource is null)
                 return;
 
-            if(_cancellationTokenSource.IsCancellationRequested)
+            if (_cancellationTokenSource.IsCancellationRequested)
                 return;
 
             _cancellationTokenSource.Cancel();

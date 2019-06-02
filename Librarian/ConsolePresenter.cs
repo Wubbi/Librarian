@@ -72,12 +72,6 @@ namespace com.github.Wubbi.Librarian
             {
                 lock (_canvas)
                 {
-                    foreach (ConsoleCanvas.Text downloadTextElement in _downloadTextElements)
-                        downloadTextElement.Visible = false;
-
-                    foreach (ConsoleCanvas.Text checkTextElement in _checkTextElements)
-                        checkTextElement.Visible = true;
-
                     _nextCheck.Value = value;
 
                     _canvas.Redraw();
@@ -91,11 +85,16 @@ namespace com.github.Wubbi.Librarian
             {
                 lock (_canvas)
                 {
-                    foreach (ConsoleCanvas.Text downloadTextElement in _downloadTextElements)
-                        downloadTextElement.Visible = true;
-
-                    foreach (ConsoleCanvas.Text checkTextElement in _checkTextElements)
-                        checkTextElement.Visible = false;
+                    if (value.State == DownloadProgressEventArgs.DownloadState.Starting)
+                    {
+                        foreach (ConsoleCanvas.Text downloadTextElement in _downloadTextElements)
+                            downloadTextElement.Visible = true;
+                    }
+                    else if (value.State != DownloadProgressEventArgs.DownloadState.Active)
+                    {
+                        foreach (ConsoleCanvas.Text downloadTextElement in _downloadTextElements)
+                            downloadTextElement.Visible = false;
+                    }
 
                     _downloadPercentage.Value = value.ProgressPercentage.ToString();
                     _downloadReceivedVsTotal.Value = $"{value.Received / 1_048_576D:F2}/{value.Total / 1_048_576D:F2}";
@@ -149,14 +148,12 @@ namespace com.github.Wubbi.Librarian
             _logCounter = 0;
 
             _nextCheck = _canvas.RegisterElement(new ConsoleCanvas.Text("LibraryCheckTime", 16, 18, 23));
+            _nextCheck.Value = "Not yet determined";
             _checkTextElements = new List<ConsoleCanvas.Text>
             {
                 _canvas.RegisterElement(new ConsoleCanvas.Text("LibraryCheck", 16, 6, "Next check:")),
                 _nextCheck
             };
-
-            foreach (ConsoleCanvas.Text checkTextElement in _checkTextElements)
-                checkTextElement.Visible = true;
 
             _downloadPercentage = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadPercentage", 16, 6, 3, ConsoleCanvas.Alignment.Right));
             _downloadReceivedVsTotal = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadReceivedVsTotal", 16, 38, 14, ConsoleCanvas.Alignment.Right));

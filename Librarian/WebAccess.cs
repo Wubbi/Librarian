@@ -20,16 +20,7 @@ namespace com.github.Wubbi.Librarian
         /// Fires when the active download changes
         /// </summary>
         public event Action<object, DownloadProgressEventArgs> DownloadProgressChanged;
-
-        public static WebAccess Instance;
-
-        static WebAccess()
-        {
-            Instance = new WebAccess();
-        }
-
-        private WebAccess() { }
-
+        
         /// <summary>
         /// Downloads a file from an url and stores it on the local filesystem
         /// </summary>

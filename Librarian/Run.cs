@@ -12,19 +12,19 @@ namespace com.github.Wubbi.Librarian
                 string settingsFile = "settings.json";
                 bool doConsoleOutput = true;
 
-                //for (int i = 0; i < args.Length; ++i)
-                //{
-                //    switch (args[i].ToLowerInvariant())
-                //    {
-                //        case "-s":
-                //            if (++i < args.Length)
-                //                settingsFile = args[i];
-                //            break;
-                //        case "--o":
-                //            doConsoleOutput = false;
-                //            break;
-                //    }
-                //}
+                for (int i = 0; i < args.Length; ++i)
+                {
+                    switch (args[i].ToLowerInvariant())
+                    {
+                        case "-s":
+                            if (++i < args.Length)
+                                settingsFile = args[i];
+                            break;
+                        case "--o":
+                            doConsoleOutput = false;
+                            break;
+                    }
+                }
 
                 if (!File.Exists(settingsFile))
                     File.WriteAllText(settingsFile,

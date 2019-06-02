@@ -201,7 +201,15 @@ namespace com.github.Wubbi.Librarian
         /// <param name="metadata">This versions metadata or null to have it be downloaded according to <paramref name="basis"/></param>
         public GameVersionExtended(GameVersion basis, string metadata = null) : base(basis)
         {
-            MetaData = metadata ?? WebAccess.Instance.DownloadFileAsString(VersionMetadataUrl);
+            MetaData = metadata;
+
+            if (MetaData == null)
+            {
+                using (WebAccess webAccess=new WebAccess())
+                {
+                    MetaData = webAccess.DownloadFileAsString(VersionMetadataUrl);
+                }
+            }
 
             if (MetaData == null)
                 return;

@@ -43,15 +43,20 @@ namespace com.github.Wubbi.Librarian
         /// <param name="manifestJson">A manifest in json format, or null to download the live one</param>
         public LauncherInventory(string manifestJson = null)
         {
-            if (manifestJson == null)
-                manifestJson = WebAccess.Instance.DownloadFileAsString(VersionInfoLocation);
+            Manifest = manifestJson;
+            
+            if (Manifest == null)
+            {
+                using (WebAccess webAccess = new WebAccess())
+                {
+                    Manifest = webAccess.DownloadFileAsString(VersionInfoLocation);
+                }
+            }
 
-            if (manifestJson == null)
+            if (Manifest == null)
                 return;
 
-            Manifest = manifestJson;
-
-            JObject manifest = JObject.Parse(manifestJson);
+            JObject manifest = JObject.Parse(Manifest);
 
             LatestReleaseId = manifest["latest"]["release"].ToString();
             LatestSnapshotId = manifest["latest"]["snapshot"].ToString();

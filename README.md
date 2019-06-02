@@ -20,7 +20,8 @@ Here is an example of what this file might look like:
 	refreshRate:29,
 	libraryPath:"G:\\Library",
 	addMissingVersions:true,
-	checkjarFiles:false,
+	checkJarFiles:false,
+	validateJarFiles:false,
 	maintainInventory:false,
 	tasks:
 	[
@@ -47,11 +48,11 @@ Here is an example of what this file might look like:
 			triggerTypes:["Added"],
 			commands:
 			[
-				"msg \"%username%\" It was stored in $path"
+				"msg \"%username%\" It was stored in _p"
 			],
 			params:
 			{
-				path:"$path"
+				path:"_p"
 			}
 		}
 	]
@@ -101,8 +102,8 @@ for the very first time (which at the time of this writing prevents ~8 GB of dat
 validateJarFiles:true
 ```
 This flag is a modifier of `checkJarFiles`. By default, only the existence of a .jar file ist tested.  
-Setting this flag to *true* will prompt Librarian to also compare its size and hash value with the values written in the matching manifest.  
-Please note, that this takes a lot more time and resources than a simple check if the file exists!
+Setting this flag to *true* will prompt Librarian to also compare its size and hash value with the values written in the matching metadata.  
+Please note, that this takes a lot more time and resources than a simple check if the file exists. Expect significantly longer startup and processing times!
 
 ---
 
@@ -110,8 +111,8 @@ Please note, that this takes a lot more time and resources than a simple check i
 maintainInventory:false
 ```
 If you occasionally "lose" your files, or just want to quickly continue a download that was aborted before, this flag might help you. 
-If you set it to *true* Librarian will compare the newest (stored) manifest with the files already present in your library and download whatever's missing. 
-This process is affected by `checkJarFiles`!
+If you set it to *true*, Librarian will compare the newest (stored) manifest with the files already present in your library and download whatever's missing. 
+This process is affected by `checkJarFiles` (and with it also `validateJarFiles`)!
 
 ---
 

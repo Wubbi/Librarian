@@ -28,6 +28,8 @@ namespace com.github.Wubbi.Librarian
 
         private bool _running;
 
+        private readonly WebAccess _webAccess;
+
         /// <summary>
         /// The settings this <see cref="Librarian"/> was initialized with
         /// </summary>
@@ -53,6 +55,8 @@ namespace com.github.Wubbi.Librarian
 
             _launcherManifestUpdates = new BlockingCollection<LauncherInventory.Diff>();
 
+            _webAccess = new WebAccess();
+
             _manifestWatcher = new ManifestWatcher(Settings.ProcessMissedUpdates ? GetLatestStoredManifest() : null);
 
             _manifestWatcher.ChangeInLauncherManifest += diff => _launcherManifestUpdates.Add(diff);
@@ -63,7 +67,7 @@ namespace com.github.Wubbi.Librarian
 
             if (_consolePresenter != null)
             {
-                WebAccess.Instance.DownloadProgressChanged += (o, args) => _consolePresenter.DownloadUpdate = args;
+                _webAccess.DownloadProgressChanged += (o, args) => _consolePresenter.DownloadUpdate = args;
                 _manifestWatcher.CheckedManifest += time => _consolePresenter.NextCheck = time.ToString("u");
             }
         }
@@ -82,6 +86,7 @@ namespace com.github.Wubbi.Librarian
 
             _manifestWatcher?.Dispose();
             _launcherManifestUpdates?.Dispose();
+            _webAccess?.Dispose();
 
             if (_consolePresenter != null)
             {
@@ -164,7 +169,7 @@ namespace com.github.Wubbi.Librarian
 
             Logger.Info("Stopping Librarian");
 
-            WebAccess.Instance.CancelActiveDownload();
+            _webAccess.CancelActiveDownload();
 
             _launcherManifestUpdates.CompleteAdding();
         }
@@ -177,11 +182,6 @@ namespace com.github.Wubbi.Librarian
         /// <returns></returns>
         private void UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false, bool skipLauncherCheck = false)
         {
-            if (_consolePresenter != null)
-            {
-                _consolePresenter.LastLibraryUpdate = DateTime.UtcNow.ToString("u");
-            }
-
             if (skipLauncherCheck)
             {
                 Logger.Info("Comparing manifest to current library");
@@ -216,8 +216,11 @@ namespace com.github.Wubbi.Librarian
                     Logger.Info("Added new manifest");
                 }
             }
-
+            
             IEnumerable<GameVersionExtended> missingVersions = GetMissingVersions(launcherInventory, metaOnly, Settings.ValidateJarFiles);
+
+            if (_consolePresenter != null)
+                _consolePresenter.LastLibraryUpdate = DateTime.UtcNow.ToString("u");
 
             List<GameVersionExtended> processedVersions = new List<GameVersionExtended>();
 
@@ -250,11 +253,13 @@ namespace com.github.Wubbi.Librarian
                 {
                     try
                     {
-                        Logger.Info($"Downloading server.jar");
-                        if (WebAccess.Instance.DownloadAndStoreFile(version.ServerDownloadUrl, serverPath, version.ServerDownloadSize, version.ServerDownloadSha1) == null)
+                        Logger.Info("Downloading server.jar");
+                        if (_webAccess.DownloadAndStoreFile(version.ServerDownloadUrl, serverPath, version.ServerDownloadSize, version.ServerDownloadSha1) == null)
                             Logger.Info("Download of server.jar failed");
                         else
                             Logger.Info("Download of server.jar complete");
+
+                        GC.Collect();
                     }
                     catch (Exception e)
                     {
@@ -275,11 +280,13 @@ namespace com.github.Wubbi.Librarian
                 {
                     try
                     {
-                        Logger.Info($"Downloading client.jar");
-                        if (WebAccess.Instance.DownloadAndStoreFile(version.ClientDownloadUrl, clientPath, version.ClientDownloadSize, version.ClientDownloadSha1) == null)
+                        Logger.Info("Downloading client.jar");
+                        if (_webAccess.DownloadAndStoreFile(version.ClientDownloadUrl, clientPath, version.ClientDownloadSize, version.ClientDownloadSha1) == null)
                             Logger.Info("Download of client.jar failed");
                         else
                             Logger.Info("Download of client.jar complete");
+
+                        GC.Collect();
                     }
                     catch (Exception e)
                     {

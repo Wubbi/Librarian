@@ -8,9 +8,6 @@ namespace com.github.Wubbi.Librarian
 {
     public class ConsolePresenter : IDisposable
     {
-        public const int DrawingWidth = 60;
-        public const int DrawingHeight = 14;
-
         private readonly ConsoleCanvas _canvas;
 
         private readonly ConsoleCanvas.Text _latestRelease;
@@ -163,12 +160,12 @@ namespace com.github.Wubbi.Librarian
 
             _downloadPercentage = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadPercentage", 16, 6, 3, ConsoleCanvas.Alignment.Right));
             _downloadReceivedVsTotal = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadReceivedVsTotal", 16, 38, 14, ConsoleCanvas.Alignment.Right));
-            _downloadTop = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadTop", 15, 12, 25));
-            _downloadMain = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadMain", 16, 12, 25, ConsoleCanvas.Alignment.Left, '-'));
+            _downloadTop = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadTop", 15, 12, 24));
+            _downloadMain = _canvas.RegisterElement(new ConsoleCanvas.Text("DownloadMain", 16, 12, 24, ConsoleCanvas.Alignment.Left, '-'));
             _downloadTextElements = new List<ConsoleCanvas.Text>()
             {
                 _canvas.RegisterElement(new ConsoleCanvas.Text("PercentageStart", 16, 9, "% |")),
-                _canvas.RegisterElement(new ConsoleCanvas.Text("PercentageEnd", 16, 37, "|")),
+                _canvas.RegisterElement(new ConsoleCanvas.Text("PercentageEnd", 16, 36, "|")),
                 _canvas.RegisterElement(new ConsoleCanvas.Text("ProgressUnit", 16, 53, "MB")),
                 _downloadPercentage,
                 _downloadReceivedVsTotal,
@@ -184,23 +181,26 @@ namespace com.github.Wubbi.Librarian
 
         public void AddLogEntry(DateTime timestamp, string message)
         {
-            ++_logCounter;
-
-            if (_logCounter <= _logEntries.Count)
+            lock (_canvas)
             {
-                _logEntries[_logCounter - 1].Value = $"{_logCounter,4} {message.Replace(Environment.NewLine, " / ")}";
-                return;
+                ++_logCounter;
+
+                if (_logCounter <= _logEntries.Count)
+                {
+                    _logEntries[_logCounter - 1].Value = $"{_logCounter,4} {message.Replace(Environment.NewLine, " / ")}";
+                    return;
+                }
+
+                int i;
+                for (i = 0; i < _logEntries.Count - 1; ++i)
+                {
+                    _logEntries[i].Value = _logEntries[i + 1].Value;
+                }
+
+                _logEntries[i].Value = $"{_logCounter,4} {message.Replace(Environment.NewLine, " / ")}";
+
+                _canvas.Redraw();
             }
-
-            int i;
-            for (i = 0; i < _logEntries.Count - 1; ++i)
-            {
-                _logEntries[i].Value = _logEntries[i + 1].Value;
-            }
-
-            _logEntries[i].Value = $"{_logCounter,4} {message.Replace(Environment.NewLine, " / ")}";
-
-            _canvas.Redraw();
         }
 
         public void Dispose()

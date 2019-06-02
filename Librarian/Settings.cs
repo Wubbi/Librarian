@@ -29,9 +29,14 @@ namespace com.github.Wubbi.Librarian
 
         /// <summary>
         /// If true, .jar files will be checked as part of the library update as well, not just the existence of metadata.
-        /// Also determines if a fresh Library will be filled with .jar files and if <see cref="MaintainInventory"/> metadata files only
+        /// Also determines if a fresh Library will be filled with .jar files and if <see cref="MaintainInventory"/> maintains metadata files only
         /// </summary>
         public bool CheckJarFiles { get; }
+
+        /// <summary>
+        /// If true, <see cref="CheckJarFiles"/> will not simply verify the existence of .jar files, but also validate them based on their size and hash value
+        /// </summary>
+        public bool ValidateJarFiles { get; }
 
         /// <summary>
         /// If true, the current newest stored manifest will be compared the existing files in the library when Librarian starts.
@@ -55,6 +60,7 @@ namespace com.github.Wubbi.Librarian
 
             ProcessMissedUpdates = settings["addMissingVersions"]?.Value<bool>() ?? false;
             CheckJarFiles = settings["checkJarFiles"]?.Value<bool>() ?? false;
+            ValidateJarFiles = settings["validateJarFiles"]?.Value<bool>() ?? false;
             MaintainInventory = settings["maintainInventory"]?.Value<bool>() ?? false;
 
             JToken tasks = settings["tasks"];

@@ -88,7 +88,7 @@ live manifest with the last stored one and treat all changes as if they just hap
 ---
 
 ```JSONiq
-checkjarFiles:true
+checkJarFiles:true
 ```
 The main purpose of this flag is to make Librarian check whether or not the server/client .jar files are present in the library. 
 By default only the existence of the metadata file is checked, so moving or deleting the game files does not trigger further updates of the library.  
@@ -98,10 +98,19 @@ for the very first time (which at the time of this writing prevents ~8 GB of dat
 ---
 
 ```JSONiq
+validateJarFiles:true
+```
+This flag is a modifier of `checkJarFiles`. By default, only the existence of a .jar file ist tested.  
+Setting this flag to *true* will prompt Librarian to also compare its size and hash value with the values written in the matching manifest.  
+Please note, that this takes a lot more time and resources than a simple check if the file exists!
+
+---
+
+```JSONiq
 maintainInventory:false
 ```
-If you occasionally "lose" your files, or just want to quickly continue a donwload that was aborted before, this flag might help you. 
-If you set it to *true* Librarian will compare the newest (stored) manifest with the files already present in your library (going purely by existing filenames) and download whatever's missing. 
+If you occasionally "lose" your files, or just want to quickly continue a download that was aborted before, this flag might help you. 
+If you set it to *true* Librarian will compare the newest (stored) manifest with the files already present in your library and download whatever's missing. 
 This process is affected by `checkJarFiles`!
 
 ---

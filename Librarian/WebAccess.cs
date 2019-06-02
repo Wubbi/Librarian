@@ -57,6 +57,9 @@ namespace com.github.Wubbi.Librarian
 
             byte[] downloadFile = DownloadFile(url, expectedSize, sha1);
 
+            if (downloadFile.Length == 0)
+                return null;
+
             File.WriteAllBytes(file, downloadFile);
 
             return file;
@@ -74,6 +77,9 @@ namespace com.github.Wubbi.Librarian
         public string DownloadFileAsString(string url, Encoding encoding = null, long expectedSize = 0, string sha1 = null)
         {
             byte[] downloadedFile = DownloadFile(url, expectedSize, sha1);
+
+            if (downloadedFile.Length == 0)
+                return null;
 
             if (encoding == null)
                 encoding = Encoding.UTF8;
@@ -121,7 +127,7 @@ namespace com.github.Wubbi.Librarian
                 {
                 }
 
-                if (downloadDataTaskAsync.IsCanceled)
+                if (downloadDataTaskAsync.IsCanceled || _cancellationTokenSource.IsCancellationRequested)
                 {
                     DownloadProgressChanged?.Invoke(this, new DownloadProgressEventArgs(url, received, total, DownloadProgressEventArgs.DownloadState.Canceled));
                     return new byte[0];
@@ -160,6 +166,15 @@ namespace com.github.Wubbi.Librarian
         /// <param name="data">The data to generate the hash from</param>
         /// <returns>A string of hexadecimal values</returns>
         public static string GenerateSha1HexString(byte[] data)
+        {
+            using (SHA1Managed sha1Managed = new SHA1Managed())
+            {
+                byte[] sha1 = sha1Managed.ComputeHash(data);
+                return string.Join("", sha1.Select(b => b.ToString("x2")));
+            }
+        }
+
+        public static string GenerateSha1HexString(Stream data)
         {
             using (SHA1Managed sha1Managed = new SHA1Managed())
             {

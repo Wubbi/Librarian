@@ -177,7 +177,6 @@ namespace com.github.Wubbi.Librarian
         /// <returns></returns>
         private void UpdateLibrary(LauncherInventory launcherInventory = null, bool metaOnly = false, bool skipLauncherCheck = false)
         {
-            metaOnly = false;
             if (_consolePresenter != null)
             {
                 _consolePresenter.LastLibraryUpdate = DateTime.UtcNow.ToString("u");
@@ -218,7 +217,7 @@ namespace com.github.Wubbi.Librarian
                 }
             }
 
-            IEnumerable<GameVersionExtended> missingVersions = GetMissingVersions(launcherInventory, metaOnly, Settings.CheckJarFiles);
+            IEnumerable<GameVersionExtended> missingVersions = GetMissingVersions(launcherInventory, metaOnly, Settings.ValidateJarFiles);
 
             List<GameVersionExtended> processedVersions = new List<GameVersionExtended>();
 
@@ -251,9 +250,11 @@ namespace com.github.Wubbi.Librarian
                 {
                     try
                     {
-                        Logger.Info($"Downloading server.jar ({version.ServerDownloadSize / 1024.0 / 1024.0:F2} MB)");
-                        WebAccess.Instance.DownloadAndStoreFile(version.ServerDownloadUrl, serverPath, version.ServerDownloadSize, version.ServerDownloadSha1);
-                        Logger.Info("Download of server.jar complete");
+                        Logger.Info($"Downloading server.jar");
+                        if (WebAccess.Instance.DownloadAndStoreFile(version.ServerDownloadUrl, serverPath, version.ServerDownloadSize, version.ServerDownloadSha1) == null)
+                            Logger.Info("Download of server.jar failed");
+                        else
+                            Logger.Info("Download of server.jar complete");
                     }
                     catch (Exception e)
                     {
@@ -274,9 +275,11 @@ namespace com.github.Wubbi.Librarian
                 {
                     try
                     {
-                        Logger.Info($"Downloading client.jar ({version.ClientDownloadSize / 1024.0 / 1024.0:F2} MB)");
-                        WebAccess.Instance.DownloadAndStoreFile(version.ClientDownloadUrl, clientPath, version.ClientDownloadSize, version.ClientDownloadSha1);
-                        Logger.Info("Download of client.jar complete");
+                        Logger.Info($"Downloading client.jar");
+                        if (WebAccess.Instance.DownloadAndStoreFile(version.ClientDownloadUrl, clientPath, version.ClientDownloadSize, version.ClientDownloadSha1) == null)
+                            Logger.Info("Download of client.jar failed");
+                        else
+                            Logger.Info("Download of client.jar complete");
                     }
                     catch (Exception e)
                     {
@@ -284,6 +287,12 @@ namespace com.github.Wubbi.Librarian
                         Logger.Error("Error while downloading client.jar");
                         Logger.Exception(e);
                     }
+                }
+
+                if (!_running)
+                {
+                    Logger.Info($"{(isUpdate ? "Update" : "Addition")} of {version.Type} {version.Id} was canceled");
+                    return;
                 }
 
                 processedVersions.Add(version);
@@ -312,18 +321,15 @@ namespace com.github.Wubbi.Librarian
                 Logger.Info("Library is up to date");
         }
 
-        private IEnumerable<GameVersionExtended> GetMissingVersions(LauncherInventory expectedInventory, bool metaOnly = true, bool checkFileSize = false)
+        private IEnumerable<GameVersionExtended> GetMissingVersions(LauncherInventory expectedInventory, bool metaOnly = true, bool validateJarFileData = false)
         {
             IEnumerable<GameVersionExtended> missingVersions = expectedInventory.AvailableVersions.OrderBy(v => v.TimeOfUpload)
                 .Where(version =>
                 {
-                    if (version.Type != GameVersion.BuildType.Release)
-                        return false;
-
                     if (!File.Exists(version.GetMetaDataFilePath(Settings.LibraryPath)))
                         return true;
 
-                    if (metaOnly || !Settings.CheckJarFiles)
+                    if (metaOnly)
                         return false;
 
                     GameVersionExtended expected = new GameVersionExtended(version, File.ReadAllText(version.GetMetaDataFilePath(Settings.LibraryPath)));
@@ -333,12 +339,23 @@ namespace com.github.Wubbi.Librarian
                         if (!File.Exists(version.GetClientFilePath(Settings.LibraryPath)))
                             return true;
 
-                        if (checkFileSize && expected.ClientDownloadSize > 0)
+                        if (validateJarFileData && expected.ClientDownloadSize > 0)
                         {
                             FileInfo fileInfo = new FileInfo(version.GetClientFilePath(Settings.LibraryPath));
 
-                            if (fileInfo.Length != expected.ClientDownloadSize)
+                            bool valid = fileInfo.Length == expected.ClientDownloadSize;
+
+                            if (valid && expected.ClientDownloadSha1 != null)
                             {
+                                using (FileStream stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                                {
+                                    valid = WebAccess.GenerateSha1HexString(stream) == expected.ClientDownloadSha1;
+                                }
+                            }
+
+                            if (!valid)
+                            {
+                                Logger.Info($"Detected invalid client.jar in {version.Type} {version.Id}, removing for new download");
                                 fileInfo.Delete();
                                 return true;
                             }
@@ -350,12 +367,23 @@ namespace com.github.Wubbi.Librarian
                         if (!File.Exists(version.GetServerFilePath(Settings.LibraryPath)))
                             return true;
 
-                        if (checkFileSize && expected.ServerDownloadSize > 0)
+                        if (validateJarFileData && expected.ServerDownloadSize > 0)
                         {
                             FileInfo fileInfo = new FileInfo(version.GetServerFilePath(Settings.LibraryPath));
 
-                            if (fileInfo.Length != expected.ServerDownloadSize)
+                            bool valid = fileInfo.Length == expected.ServerDownloadSize;
+
+                            if (valid && expected.ServerDownloadSha1 != null)
                             {
+                                using (FileStream stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                                {
+                                    valid = WebAccess.GenerateSha1HexString(stream) == expected.ServerDownloadSha1;
+                                }
+                            }
+
+                            if (!valid)
+                            {
+                                Logger.Info($"Detected invalid server.jar in {version.Type} {version.Id}, removing for new download");
                                 fileInfo.Delete();
                                 return true;
                             }

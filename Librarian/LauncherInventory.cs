@@ -46,6 +46,9 @@ namespace com.github.Wubbi.Librarian
             if (manifestJson == null)
                 manifestJson = WebAccess.Instance.DownloadFileAsString(VersionInfoLocation);
 
+            if (manifestJson == null)
+                return;
+
             Manifest = manifestJson;
 
             JObject manifest = JObject.Parse(manifestJson);

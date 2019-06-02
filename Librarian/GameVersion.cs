@@ -203,6 +203,9 @@ namespace com.github.Wubbi.Librarian
         {
             MetaData = metadata ?? WebAccess.Instance.DownloadFileAsString(VersionMetadataUrl);
 
+            if (MetaData == null)
+                return;
+
             JObject metaData = JObject.Parse(MetaData);
 
             JToken downloads = metaData["downloads"];

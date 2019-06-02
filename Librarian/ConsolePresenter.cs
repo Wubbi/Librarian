@@ -20,8 +20,6 @@ namespace com.github.Wubbi.Librarian
         private readonly List<ConsoleCanvas.Text> _logEntries;
         private int _logCounter;
 
-        private readonly object _statusLock;
-
         private readonly List<ConsoleCanvas.Text> _checkTextElements;
         private readonly ConsoleCanvas.Text _nextCheck;
 
@@ -35,29 +33,48 @@ namespace com.github.Wubbi.Librarian
         public string LatestRelease
         {
             get => _latestRelease.Value;
-            set => _latestRelease.Value = value;
+            set
+            {
+                lock (_canvas)
+                {
+                    _latestRelease.Value = value;
+                    _canvas.Redraw();
+                }
+            }
         }
 
         public string LatestSnapshot
         {
             get => _latestSnapshot.Value;
-            set => _latestSnapshot.Value = value;
+            set
+            {
+                lock (_canvas)
+                {
+                    _latestSnapshot.Value = value;
+                    _canvas.Redraw();
+                }
+            }
         }
 
         public string LastLibraryUpdate
         {
             get => _lastLibraryUpdate.Value;
-            set => _lastLibraryUpdate.Value = value;
+            set
+            {
+                lock (_canvas)
+                {
+                    _lastLibraryUpdate.Value = value;
+                    _canvas.Redraw();
+                }
+            }
         }
 
         public string NextCheck
         {
             set
             {
-                lock (_statusLock)
+                lock (_canvas)
                 {
-                    _canvas.Frozen = true;
-
                     foreach (ConsoleCanvas.Text downloadTextElement in _downloadTextElements)
                         downloadTextElement.Visible = false;
 
@@ -65,8 +82,6 @@ namespace com.github.Wubbi.Librarian
                         checkTextElement.Visible = true;
 
                     _nextCheck.Value = value;
-
-                    _canvas.Frozen = false;
 
                     _canvas.Redraw();
                 }
@@ -77,10 +92,8 @@ namespace com.github.Wubbi.Librarian
         {
             set
             {
-                lock (_statusLock)
+                lock (_canvas)
                 {
-                    _canvas.Frozen = true;
-
                     foreach (ConsoleCanvas.Text downloadTextElement in _downloadTextElements)
                         downloadTextElement.Visible = true;
 
@@ -97,8 +110,6 @@ namespace com.github.Wubbi.Librarian
                     _downloadTop.Value = border;
                     _downloadMain.Value = border + tip;
 
-                    _canvas.Frozen = false;
-
                     _canvas.Redraw();
                 }
             }
@@ -111,8 +122,8 @@ namespace com.github.Wubbi.Librarian
                 Title = $"Librarian v{Assembly.GetExecutingAssembly().GetName().Version}"
             };
 
-            _canvas.RegisterElement(new ConsoleCanvas.Rect("Separator", 8, 0, 14, _canvas.Width - 1, '-', 1));
-            _canvas.RegisterElement(new ConsoleCanvas.Rect("Border", 0, 0, _canvas.Height - 1, _canvas.Width - 1, '#', 1));
+            _canvas.RegisterElement(new ConsoleCanvas.Rect("Separator", 8, 0, 7, _canvas.Width, '-', 1));
+            _canvas.RegisterElement(new ConsoleCanvas.Rect("Border", 0, 0, _canvas.Height, _canvas.Width, '#', 1));
 
             _canvas.RegisterElement(new ConsoleCanvas.Text("Headline", 1, 1, 58, ConsoleCanvas.Alignment.Center))
                 .Value = _canvas.Title;
@@ -139,8 +150,6 @@ namespace com.github.Wubbi.Librarian
                 _logEntries.Add(_canvas.RegisterElement(new ConsoleCanvas.Text("LogEntry#" + i, 9 + i, 2, 57)));
 
             _logCounter = 0;
-
-            _statusLock = new object();
 
             _nextCheck = _canvas.RegisterElement(new ConsoleCanvas.Text("LibraryCheckTime", 16, 18, 23));
             _checkTextElements = new List<ConsoleCanvas.Text>
@@ -190,6 +199,8 @@ namespace com.github.Wubbi.Librarian
             }
 
             _logEntries[i].Value = $"{_logCounter,4} {message.Replace(Environment.NewLine, " / ")}";
+
+            _canvas.Redraw();
         }
 
         public void Dispose()

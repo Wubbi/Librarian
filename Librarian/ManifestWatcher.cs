@@ -58,7 +58,7 @@ namespace com.github.Wubbi.Librarian
             lock (_timer)
             {
                 _delay = interval;
-                _timer.Change(TimeSpan.Zero, NegativeOneMilliseconds);
+                _timer.Change(TimeSpan.Zero, _delay);
                 NextCheck = DateTime.UtcNow;
             }
         }
@@ -82,16 +82,12 @@ namespace com.github.Wubbi.Librarian
         /// <param name="state"></param>
         private void CheckLauncherManifest(object state)
         {
-            LauncherInventory liveInventory = new LauncherInventory();
-
             lock (_timer)
             {
-                if (_delay <= TimeSpan.Zero)
-                    return;
-
-                _timer.Change(_delay, NegativeOneMilliseconds);
                 NextCheck = DateTime.UtcNow + _delay;
             }
+
+            LauncherInventory liveInventory = new LauncherInventory();
 
             CheckedManifest?.Invoke(NextCheck);
 

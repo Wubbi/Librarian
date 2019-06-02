@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 namespace com.github.Wubbi.Librarian
@@ -23,8 +22,6 @@ namespace com.github.Wubbi.Librarian
                 Console.Title = _title;
             }
         }
-
-        public bool Frozen { get; set; }
 
         private readonly List<CanvasElement> _elements;
 
@@ -77,9 +74,9 @@ namespace com.github.Wubbi.Librarian
 
                 _elements.Add(element);
 
-                element.Draw(this);
-
                 element.RedrawRequired += OnRedrawRequired;
+
+                element.InvokeRedraw(RedrawScale.Overwrite);
 
                 return element;
             }
@@ -117,70 +114,68 @@ namespace com.github.Wubbi.Librarian
             }
         }
 
-        private void OnRedrawRequired(CanvasElement sender, bool elementOnly)
+        private void OnRedrawRequired(CanvasElement sender, RedrawScale scale)
         {
             lock (_accessLock)
             {
-                if (Frozen)
+                if (scale == RedrawScale.NoRedraw)
                     return;
 
-                foreach (CanvasElement element in _elements.OrderBy(e => e.Visible).SkipWhile(e => elementOnly && e.Name != sender?.Name))
-                    element.Draw(this);
+                if (scale == RedrawScale.Global)
+                {
+                    foreach (CanvasElement canvasElement in _elements.Where(e => e.RedrawScale < RedrawScale.Global))
+                        canvasElement.InvokeRedraw(RedrawScale.Global);
 
-                Console.SetCursorPosition(Width - 1, _canvasBufferTop + Height - 1);
+                    return;
+                }
+
+                int startIndex = scale == RedrawScale.Erase ? 0 : _elements.IndexOf(sender) + 1;
+
+                foreach (CanvasElement canvasElement in _elements.Skip(startIndex).Where(e => e.Visible && e.Intersects(sender)))
+                    canvasElement.InvokeRedraw(RedrawScale.Overwrite);
             }
         }
 
         public void Redraw()
         {
-            OnRedrawRequired(null, false);
             Console.Title = _title;
+
+            lock (_accessLock)
+            {
+                if (_elements.Count == 0)
+                    return;
+
+                if (_elements[0].RedrawScale == RedrawScale.Global)
+                {
+                    string line = new string(' ', Width);
+                    for (int i = 0; i < Height; ++i)
+                    {
+                        Console.SetCursorPosition(0, _canvasBufferTop + i);
+                        Console.Write(line);
+                    }
+                }
+
+                foreach (CanvasElement canvasElement in _elements.Where(e => e.RedrawScale == RedrawScale.Erase))
+                    canvasElement.Clear(this);
+
+                foreach (CanvasElement canvasElement in _elements.Where(e => e.RedrawScale == RedrawScale.Overwrite || e.RedrawScale == RedrawScale.Global))
+                    canvasElement.Draw(this);
+            }
         }
 
         public abstract class CanvasElement
         {
             private bool _visible;
-            public event Action<CanvasElement, bool> RedrawRequired;
+            public event Action<CanvasElement, RedrawScale> RedrawRequired;
+
+            public RedrawScale RedrawScale { get; private set; }
 
             public string Name { get; }
 
-            public bool Visible
-            {
-                get => _visible;
-                set
-                {
-                    if (_visible == value)
-                        return;
-
-                    _visible = value;
-
-                    InvokeRedraw(false);
-                }
-            }
-
-            protected CanvasElement(string name)
-            {
-                Name = name;
-                Visible = true;
-            }
-
-            public abstract void Draw(ConsoleCanvas hostCanvas);
-
-            protected void InvokeRedraw(bool elementOnly)
-            {
-                RedrawRequired?.Invoke(this, elementOnly);
-            }
-        }
-
-        public class Text : CanvasElement
-        {
-            private int _top;
-            private int _left;
-            private int _width;
-
-            private string _value;
-            private Alignment _alignment;
-            private char _background;
+            protected int _top;
+            protected int _left;
+            protected int _height;
+            protected int _width;
 
             public int Top
             {
@@ -192,7 +187,7 @@ namespace com.github.Wubbi.Librarian
 
                     _top = value;
 
-                    InvokeRedraw(false);
+                    InvokeRedraw(RedrawScale.Global);
                 }
             }
 
@@ -206,7 +201,21 @@ namespace com.github.Wubbi.Librarian
 
                     _left = value;
 
-                    InvokeRedraw(false);
+                    InvokeRedraw(RedrawScale.Global);
+                }
+            }
+
+            public int Height
+            {
+                get => _height;
+                set
+                {
+                    if (value == _height)
+                        return;
+
+                    _height = value;
+
+                    InvokeRedraw(RedrawScale.Global);
                 }
             }
 
@@ -220,9 +229,68 @@ namespace com.github.Wubbi.Librarian
 
                     _width = value;
 
-                    InvokeRedraw(false);
+                    InvokeRedraw(RedrawScale.Global);
                 }
             }
+
+            public bool Visible
+            {
+                get => _visible;
+                set
+                {
+                    if (_visible == value)
+                        return;
+
+                    _visible = value;
+
+                    InvokeRedraw(_visible ? RedrawScale.Overwrite : RedrawScale.Erase);
+                }
+            }
+
+            protected CanvasElement(string name)
+            {
+                Name = name;
+                Visible = true;
+            }
+
+            public virtual void Draw(ConsoleCanvas hostCanvas)
+            {
+                RedrawScale = RedrawScale.NoRedraw;
+            }
+
+            public void Clear(ConsoleCanvas hostCanvas)
+            {
+                RedrawScale = RedrawScale.NoRedraw;
+
+                string line = new string(' ', Width);
+                for (int i = Top; i <= Top + Height - 1; ++i)
+                {
+                    Console.SetCursorPosition(Left, hostCanvas._canvasBufferTop + i);
+                    Console.Write(line);
+                }
+            }
+
+            public void InvokeRedraw(RedrawScale scale)
+            {
+                if (scale < RedrawScale)
+                    return;
+
+                RedrawScale = scale;
+                RedrawRequired?.Invoke(this, scale);
+            }
+
+            public bool Intersects(CanvasElement other)
+            {
+                return Top + Height - 1 >= other.Top && Top <= other.Top + other.Height - 1 && Left + Width - 1 >= other.Left && Left <= other.Left + other.Width - 1;
+            }
+        }
+
+        public class Text : CanvasElement
+        {
+            private string _value;
+            private Alignment _alignment;
+            private char _background;
+
 
             public char Background
             {
@@ -234,7 +302,7 @@ namespace com.github.Wubbi.Librarian
 
                     _background = value;
 
-                    InvokeRedraw(false);
+                    InvokeRedraw(RedrawScale.Overwrite);
                 }
             }
 
@@ -248,7 +316,7 @@ namespace com.github.Wubbi.Librarian
 
                     _value = value;
 
-                    InvokeRedraw(true);
+                    InvokeRedraw(RedrawScale.Overwrite);
                 }
             }
 
@@ -262,7 +330,7 @@ namespace com.github.Wubbi.Librarian
 
                     _alignment = value;
 
-                    InvokeRedraw(true);
+                    InvokeRedraw(RedrawScale.Overwrite);
                 }
             }
 
@@ -276,6 +344,7 @@ namespace com.github.Wubbi.Librarian
                 _top = top;
                 _left = left;
                 _width = width;
+                _height = 1;
                 _alignment = alignment;
                 _background = background;
                 _value = "";
@@ -283,49 +352,47 @@ namespace com.github.Wubbi.Librarian
 
             public override void Draw(ConsoleCanvas hostCanvas)
             {
+                base.Draw(hostCanvas);
+
+                if (!Visible)
+                    return;
+
                 string display;
 
-                if (Visible)
+                if (Value.Length > Width)
                 {
-                    if (Value.Length > Width)
+                    switch (Alignment)
                     {
-                        switch (Alignment)
-                        {
-                            case Alignment.Right:
-                                display = Value.Substring(Value.Length - Width);
-                                break;
-                            case Alignment.Center:
-                                display = Value.Substring((Value.Length - Width) / 2);
-                                break;
-                            default:
-                                display = Value.Substring(0, Width);
-                                break;
-                        }
+                        case Alignment.Right:
+                            display = Value.Substring(Value.Length - Width);
+                            break;
+                        case Alignment.Center:
+                            display = Value.Substring((Value.Length - Width) / 2);
+                            break;
+                        default:
+                            display = Value.Substring(0, Width);
+                            break;
                     }
-                    else if (Value.Length < Width)
+                }
+                else if (Value.Length < Width)
+                {
+                    switch (Alignment)
                     {
-                        switch (Alignment)
-                        {
-                            case Alignment.Right:
-                                display = Value.PadLeft(Width, Background);
-                                break;
-                            case Alignment.Center:
-                                display = Value.PadLeft(Value.Length + (Width - Value.Length) / 2, Background);
-                                display = display.PadRight(Width, Background);
-                                break;
-                            default:
-                                display = Value.PadRight(Width, Background);
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        display = Value;
+                        case Alignment.Right:
+                            display = Value.PadLeft(Width, Background);
+                            break;
+                        case Alignment.Center:
+                            display = Value.PadLeft(Value.Length + (Width - Value.Length) / 2, Background);
+                            display = display.PadRight(Width, Background);
+                            break;
+                        default:
+                            display = Value.PadRight(Width, Background);
+                            break;
                     }
                 }
                 else
                 {
-                    display = new string(' ', Width);
+                    display = Value;
                 }
 
                 Console.SetCursorPosition(Left, hostCanvas._canvasBufferTop + Top);
@@ -335,70 +402,9 @@ namespace com.github.Wubbi.Librarian
 
         public class Rect : CanvasElement
         {
-            private int _top;
-            private int _left;
-            private int _bottom;
-            private int _right;
-
             private int _border;
 
             private char _filler;
-
-            public int Top
-            {
-                get => _top;
-                set
-                {
-                    if (value == _top)
-                        return;
-
-                    _top = value;
-
-                    InvokeRedraw(false);
-                }
-            }
-
-            public int Left
-            {
-                get => _left;
-                set
-                {
-                    if (value == _left)
-                        return;
-
-                    _left = value;
-
-                    InvokeRedraw(false);
-                }
-            }
-
-            public int Bottom
-            {
-                get => _bottom;
-                set
-                {
-                    if (value == _bottom)
-                        return;
-
-                    _bottom = value;
-
-                    InvokeRedraw(false);
-                }
-            }
-
-            public int Right
-            {
-                get => _right;
-                set
-                {
-                    if (value == _right)
-                        return;
-
-                    _right = value;
-
-                    InvokeRedraw(false);
-                }
-            }
 
             public char Filler
             {
@@ -410,7 +416,7 @@ namespace com.github.Wubbi.Librarian
 
                     _filler = value;
 
-                    InvokeRedraw(true);
+                    InvokeRedraw(RedrawScale.Overwrite);
                 }
             }
 
@@ -424,40 +430,43 @@ namespace com.github.Wubbi.Librarian
 
                     _border = value;
 
-                    InvokeRedraw(false);
+                    InvokeRedraw(RedrawScale.Global);
                 }
             }
 
-            public Rect(string name, int top, int left, int bottom, int right, char filler, int border = 0) : base(name)
+            public Rect(string name, int top, int left, int height, int width, char filler, int border = 0) : base(name)
             {
                 _top = top;
                 _left = left;
-                _bottom = bottom;
-                _right = right;
+                _height = height;
+                _width = width;
                 _filler = filler;
                 _border = border;
             }
 
             public override void Draw(ConsoleCanvas hostCanvas)
             {
-                char filler = Visible ? Filler : ' ';
+                base.Draw(hostCanvas);
 
-                for (int i = Top; i <= Bottom; ++i)
+                if (!Visible)
+                    return;
+
+                for (int i = Top; i <= Top + Height - 1; ++i)
                 {
-                    if (Border > 0 && i - Top > Border - 1 && Bottom - i > Border - 1 && Right - Left + 1 > 2 * Border)
+                    if (Border > 0 && i - Top > Border - 1 && Top + Height - i > Border && Width > 2 * Border)
                     {
-                        string filling = new string(filler, Border);
+                        string filling = new string(Filler, Border);
 
                         Console.SetCursorPosition(Left, hostCanvas._canvasBufferTop + i);
                         Console.Write(filling);
 
-                        Console.SetCursorPosition(Right - Border + 1, hostCanvas._canvasBufferTop + i);
+                        Console.SetCursorPosition(Left + Width - Border, hostCanvas._canvasBufferTop + i);
                         Console.Write(filling);
                     }
                     else
                     {
                         Console.SetCursorPosition(Left, hostCanvas._canvasBufferTop + i);
-                        Console.Write(new string(filler, Right - Left + 1));
+                        Console.Write(new string(Filler, Width));
                     }
                 }
             }
@@ -468,6 +477,14 @@ namespace com.github.Wubbi.Librarian
             Left,
             Right,
             Center
+        }
+
+        public enum RedrawScale
+        {
+            NoRedraw = 0,
+            Overwrite = 1,
+            Erase = 2,
+            Global = 3
         }
     }
 

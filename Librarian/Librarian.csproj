@@ -1,41 +1,27 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
-    <LangVersion>7.3</LangVersion>
-    <Authors>Wubbi</Authors>
-    <Company>WubbiConcepts</Company>
-    <AssemblyVersion>0.8.0.0</AssemblyVersion>
-    <FileVersion>0.8.0.0</FileVersion>
-    <PackageProjectUrl>https://github.com/Wubbi/Librarian</PackageProjectUrl>
-    <ApplicationIcon></ApplicationIcon>
     <OutputType>Exe</OutputType>
-    <StartupObject />
-    <RootNamespace>com.github.Wubbi.Librarian</RootNamespace>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <WarningsAsErrors>NU1605</WarningsAsErrors>
+    <ApplicationIcon>Librarian.ico</ApplicationIcon>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="..\External Licenses\Json.NET License.txt" Link="Json.NET License.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\LICENSE" Link="LICENSE">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <PackageReference Include="queuepacked.ConsoleUi" Version="2.0.3" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Link="README.md" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+    <ProjectReference Include="..\Librarian.Core\Librarian.Core.csproj" />
   </ItemGroup>
 
 </Project>

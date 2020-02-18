@@ -2,7 +2,7 @@
   "profiles": {
     "Librarian": {
       "commandName": "Project",
-      "commandLineArgs": "-s \"G:/Library/Librarian/settings.json\""
+      "commandLineArgs": "-l \"D:\\Library\" -c \"msg * \\\"Hello, _AddedVersionPath_!\\\"\" -e"
     }
   }
 }

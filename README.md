@@ -5,191 +5,127 @@ where it will frequently query the Mojang servers to see if any new versions of 
 If so, it will download the main game files and optionally execute commands in your systems shell
 to trigger further actions.
 
-**This project uses .NET Core 2.1**
+**This project uses .NET Core 3.1**
 
 To use the [binaries](https://github.com/Wubbi/Librarian/releases) make sure you have at least the [.Net Core Runtime](https://dotnet.microsoft.com/download) installed.  
-Afterwards you can start the program with `dotnet Librarian.dll`.
+Afterwards you can start the program with `dotnet Librarian`.  
+The Windows binaries contain an executable you can use, though that still requires the runtime to be installed.
+
+**If you've used the old Librarian, you can reuse its library!**  
+See the `MigrateOldLibrarianData` setting below for details.
 
 ## Settings
 
-To configure Librarian, you can use a textfile containing the required settings in JSON format.
-Here is an example of what this file might look like:
-
+When starting, Librarian looks for a "settings.json" next to the executable which you can use to override the default settings.
+Here is an example of all available settings with their default values:
 ```JSONiq
 {
-	refreshRate:29,
-	libraryPath:"G:\\Library",
-	addMissingVersions:true,
-	checkJarFiles:false,
-	validateJarFiles:false,
-	maintainInventory:false,
-	tasks:
-	[
-		{
-			beforeDownload:true,
-			dependentOnIds:[],
-			type:"Snapshot",
-			triggerTypes:["Added","Changed"],
-			commands:
-			[
-				"msg \"%username%\" Snapshot version $id is out!",
-				"msg \"%username%\" It will be stored in $path"
-			],
-			params:
-			{
-				id:"$id",
-				path:"$path"
-			}
-		},
-		{
-			beforeDownload:false,
-			dependentOnIds:[0],
-			type:"Snapshot",
-			triggerTypes:["Added"],
-			commands:
-			[
-				"msg \"%username%\" It was stored in _p"
-			],
-			params:
-			{
-				path:"_p"
-			}
-		}
-	]
+	"LibraryRoot":"./Library",
+	"Log":true,
+	"ValidateLibraryOnStartup":false,
+	"Interval":1140,
+	"SkipJars":false,
+	"MigrateOldLibrarianData":"",
+	"AddedVersionCommand":"",
+	"NewestOnly":true,
+	"UiInputInterval":80,
+	"UiRenderReduction":3
 }
 ```
+Additionally you can use commandline arguments to override those settings again.  
+``Defaults < Settings file < Commandline Arguments``  
+ You'll find the arguments below.  
+
 
 **Let's have a closer look**
 ---
 
 ```JSONiq
-refreshRate:29
+"LibraryRoot":"./Library"
+-l "./Library"
 ```
-This is the time in seconds between two queries to the Mojang server, so in our example Librarian looks for new versions every 29 seconds.  
-While it is in seconds, remember that updates do not happen all to often. A refresh every few hours might be all you need.
-
----
-
-```JSONiq
-libraryPath:"G:\\Library"
-```
-This is the location of the library Librarian maintains. All files will be donwloaded into its structure,
+This is the location of the library Librarian maintains. All files will be downloaded into its structure,
 organized by `<type>/<name>/<release_date>`.  
 Furthermore, this is the place where the logfile will be written.
 
 ---
 
 ```JSONiq
-addMissingVersions:true
+"Log":true
+-n true
 ```
-Depending on your use case, you might not have Librarian running whenever a new version comes out, but still want
-the tasks to be executed for the updates you've missed. When this flag is set to *true*, Librarian will (once, whenever it starts) compare the 
-live manifest with the last stored one and treat all changes as if they just happend.
+Whether or not to log events. Logs will be written in "log.txt" next to the executable.  
 
 ---
 
 ```JSONiq
-checkJarFiles:true
+"ValidateLibraryOnStartup":false
+-v false
 ```
-The main purpose of this flag is to make Librarian check whether or not the server/client .jar files are present in the library. 
-By default only the existence of the metadata file is checked, so moving or deleting the game files does not trigger further updates of the library.  
-As a secondary function, setting this flag to *false* will prevent Librarian to dowload .jar files when it builds its library 
-for the very first time (which at the time of this writing prevents ~8 GB of data from being downloaded).
+When starting, Librarian will check which versions are already in the Library by searching for folders with meta.json files in them.  
+When this settings is `true`, a second check will be performed, which looks for missing .jar files and compares the size and SHA1 hash of exisiting jars against the manifest.
 
 ---
 
 ```JSONiq
-validateJarFiles:true
+"Interval":1140
+-i 1140
 ```
-This flag is a modifier of `checkJarFiles`. By default, only the existence of a .jar file ist tested.  
-Setting this flag to *true* will prompt Librarian to also compare its size and hash value with the values written in the matching metadata.  
-Please note, that this takes a lot more time and resources than a simple check if the file exists. Expect significantly longer startup and processing times!
+This is the time in seconds between two queries to the Mojang server, so by default Librarian looks for new versions every 19 minutes.  
+While it is in seconds, remember that updates do not happen all to often. A refresh every few hours might be all you need.
 
 ---
 
 ```JSONiq
-maintainInventory:false
+"SkipJars":false
+-s false
 ```
-If you occasionally "lose" your files, or just want to quickly continue a download that was aborted before, this flag might help you. 
-If you set it to *true*, Librarian will compare the newest (stored) manifest with the files already present in your library and download whatever's missing. 
-This process is affected by `checkJarFiles` (and with it also `validateJarFiles`)!
+By default, Librarian will download the jar files of every version not already in the library.  
+Using this setting you can limit the download to the meta.json file.  
+Please note that this does not affect downloads triggered by `ValidateLibraryOnStartup`.
 
 ---
 
 ```JSONiq
-tasks:[...]
+"MigrateOldLibrarianData":"example/path/OldLibrary"
+-migrate "example/path/OldLibrary"
 ```
-As mentioned above, Librarian can execute shell commands whenever an update occurs. They are combined with filters,
-that limit when they should be run, and organized as task objects in this array.
-
-## Tasks
-
-Simply said, a task consists out of a set of filters and a list of shell commands.
-Whenever Librarian detects an update, it tries to run each task once for each version affected by the update.
-If the tasks filters apply, its commands are executed.
+This setting is meant to be used only once, before you start using Librarian effectively.  
+If you've used the old Librarian, you need this to migrate the old structure to the new format.
+When Librarian starts, all files from the old Library in the given path are copied into the new location
+(overwriting existing files). Librarian closes itself right after migration is complete.
 
 ---
 
 ```JSONiq
-beforeDownload:true
+"AddedVersionCommand":""
+-c ""
 ```
-Determines whether this task is to be run before or after Librarian downloads files.
+This is where you can set a command to execute when a new version of the game was detected and downloaded.  
+Every occurence of `_AddedVersionPath_` in the command will get replaced by the path of the added game.  
+When several versions are downloaded, the command is executed for each of them in order of their release date.
 
 ---
 
 ```JSONiq
-dependentOnIds:[]
+"NewestOnly":true
+-e true
 ```
-A list of tasks that need to be executed succesfully (filters applied, all commands succeeded) before this one can.
-The Ids used here are simply the indices of the task in the `tasks:[]` array (starting at 0).
+If this value is `true`, and several versions are downloded, the command in `AddedVersionCommand`
+will only be executed for the newest of them instead of all.
 
 ---
 
 ```JSONiq
-type:"Snapshot"
+"UiInputInterval":80
+"UiRenderReduction":3
+-ui 80 3
 ```
-Filters which type of release this task reacts to. Can only be one of these:
-- `Snapshot` - Unstable dev builds
-- `Release` - Official, stable release of the game
-- `Alpha` - The oldest version available. Unlikely to ever be part of an update
-- `Beta` - Same as above, unlikely to be used ever again
+These two settings change the rate in which Librarian interacts with the console.  
+`UiInputInterval` is the delay in milliseconds inbetween checking for new inputs from the user.
+Currently this only refers to the Ctrl+C combination to shut down Librarian.  
+`UiRenderReduction` is a counter that reduces the amount of refreshs of the console output based on the input scan interval.
+In the above example the output is refreshed once on every third (`3`) scan for inputs (once every ~240ms).  
+Reduce these values as you need. Smaller delays can cause flickering.
 
 ---
-
-```JSONiq
-triggerTypes:[]
-```
-A list of types of update this task is triggered by. Currently available:
-- `Latest` - React to a change of what is considered to be the latest version of the type specified by `type`
-- `Added` - React to versions that were not available before
-- `Changed` - React to versions that were available before, but have undergone some change
-- `Removed` - React to versions that are not available anymore  
-
-Keep the following in mind:  
-Especially if you haven't used Librarian for a while, several versions might be updated and are therefore processed by a single task.
-`Latest` is the only option that (by definition) applies to only one single version!
-
----
-
-```JSONiq
-commands:[...]
-```
-A simple list of shell commands, that are to be executed in the order they are written (if all above filters apply).
-
----
-
-```JSONiq
-params:{...}
-```
-These are necessary to make the commands more dynamic. They are pairs of a key, that links it to a hardcoded function,
-and a value, that is used as a variable in the commands. Currently only two parameters are available:
-- `id` - The "name" of the version beeing processed
-- `path` - The path in which the files are (going to be) stored (filenames are ALWAYS client.jar and server.jar)
-
-
-## Commandline arguments
-
-When starting Librarian you can specifiy the following arguments:
-- `-s <settings_file>` - Allows you to specify a textfile to read settings from
-- `--o` - Turns off the standard output. By default the console displays entries made to the logfile
-

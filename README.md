@@ -11,7 +11,7 @@ To use the [binaries](https://github.com/Wubbi/Librarian/releases) make sure you
 Afterwards you can start the program with `dotnet Librarian`.  
 The Windows binaries contain an executable you can use, though that still requires the runtime to be installed.
 
-**If you've used the old Librarian, you can reuse its library!**  
+**If you've used the old Librarian (versions before 1.0.0), you can reuse its library!**  
 See the `MigrateOldLibrarianData` setting below for details.
 
 ## Settings

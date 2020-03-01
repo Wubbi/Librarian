@@ -25,14 +25,17 @@ namespace Librarian.Core
 
         public ReadOnlyCollection<Game> Versions { get; }
 
+        public ReadOnlyCollection<Game.AppType> IgnoredAppTypes { get; }
+
         private LocalInventory()
         {
             Root = "";
             _versions = new List<Game>();
             Versions = new ReadOnlyCollection<Game>(_versions);
+            IgnoredAppTypes=new ReadOnlyCollection<Game.AppType>(new List<Game.AppType>());
         }
 
-        public LocalInventory([NotNull] string root)
+        public LocalInventory([NotNull] string root, [NotNull] IEnumerable<Game.AppType> ignoredAppTypes)
         {
             if (root is null)
                 throw new ArgumentNullException(nameof(root));
@@ -45,6 +48,8 @@ namespace Librarian.Core
             _versions = new List<Game>();
 
             Versions = new ReadOnlyCollection<Game>(_versions);
+
+            IgnoredAppTypes = new ReadOnlyCollection<Game.AppType>(ignoredAppTypes.ToList());
         }
 
         public void Scan(Action<string> currentFolderCallback, CancellationToken token)
@@ -105,6 +110,9 @@ namespace Librarian.Core
                     if (token.IsCancellationRequested)
                         return;
 
+                    if (IgnoredAppTypes.Contains(appType))
+                        continue;
+
                     string file = Path.Combine(GetGameFolder(game), $"{appType}.jar");
 
                     if (File.Exists(file))
@@ -114,7 +122,6 @@ namespace Librarian.Core
                         if (localResource.Size == downloadMeta.Size && localResource.Sha1.Equals(downloadMeta.Sha1))
                             continue;
                     }
-
 
                     invalidGames.Add(game);
                     break;

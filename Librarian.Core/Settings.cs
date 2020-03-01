@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace Librarian.Core
@@ -20,6 +23,8 @@ namespace Librarian.Core
             else
                 Default = new Settings();
         }
+
+        private List<Game.AppType> _ignoredAppTypes;
 
         public string LibraryRoot { get; private set; }
 
@@ -41,6 +46,8 @@ namespace Librarian.Core
 
         public int UiRenderReduction { get; private set; }
 
+        public ReadOnlyCollection<Game.AppType> IgnoredAppTypes { get; }
+
         public Settings()
         {
             LibraryRoot = Path.Combine(Environment.CurrentDirectory, "Library");
@@ -53,6 +60,8 @@ namespace Librarian.Core
             NewestOnly = true;
             UiInputInterval = 80;
             UiRenderReduction = 3;
+            _ignoredAppTypes = new List<Game.AppType>();
+            IgnoredAppTypes = new ReadOnlyCollection<Game.AppType>(_ignoredAppTypes);
         }
 
         private Settings(Settings settings)
@@ -67,6 +76,8 @@ namespace Librarian.Core
             NewestOnly = settings.NewestOnly;
             UiInputInterval = settings.UiInputInterval;
             UiRenderReduction = settings.UiRenderReduction;
+            _ignoredAppTypes = settings._ignoredAppTypes.ToList();
+            IgnoredAppTypes = new ReadOnlyCollection<Game.AppType>(_ignoredAppTypes);
         }
 
         public Settings([NotNull] string json) : this()
@@ -101,6 +112,19 @@ namespace Librarian.Core
 
             if (jsonDoc.RootElement.TryGetProperty(nameof(UiRenderReduction), out tmp) && tmp.TryGetInt32(out int uiRenderReduction))
                 UiRenderReduction = uiRenderReduction;
+
+            if (jsonDoc.RootElement.TryGetProperty(nameof(IgnoredAppTypes), out tmp))
+            {
+                string[] appTypes = tmp.ToString().Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (string appType in appTypes)
+                {
+                    if (!Enum.TryParse(appType, true, out Game.AppType type) || _ignoredAppTypes.Contains(type))
+                        continue;
+
+                    _ignoredAppTypes.Add(type);
+                }
+            }
         }
 
         public Settings CreateOverride([NotNull] string[] args)
@@ -176,6 +200,21 @@ namespace Librarian.Core
 
                         overridden.UiInputInterval = int.Parse(args[++i]);
                         overridden.UiRenderReduction = int.Parse(args[++i]);
+                        break;
+                    case "-t":
+                        ++i;
+                        if (i >= args.Length)
+                            throw new Exception("Missing value for -t");
+
+                        string[] appTypes = args[i].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+
+                        foreach (string appType in appTypes)
+                        {
+                            if (!Enum.TryParse(appType, true, out Game.AppType type) || _ignoredAppTypes.Contains(type))
+                                continue;
+
+                            overridden._ignoredAppTypes.Add(type);
+                        }
                         break;
 
                     default:

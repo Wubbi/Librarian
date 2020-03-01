@@ -44,7 +44,7 @@ namespace Librarian
             AppDomain.CurrentDomain.UnhandledException += (sender, eventArgs)
                 => Logger.Instance.Log(eventArgs.ExceptionObject.ToString() ?? "Unknown Exception", Logger.Level.Error);
 
-            State = new State(Settings.LibraryRoot);
+            State = new State(Settings);
 
             using UiHub uiHub = UiHub.Register(80, 20, true);
             uiHub.Title = $"Librarian v{Version}";
@@ -69,7 +69,7 @@ namespace Librarian
                             case State.View.Main:
                                 uiHub.SwitchView(mainView.Name);
                                 break;
-                            case State.View.Donwload:
+                            case State.View.Download:
                                 uiHub.SwitchView(downloadView.Name);
                                 break;
                             case State.View.Scan:
@@ -192,7 +192,7 @@ namespace Librarian
             if (missingGames.Count == 0)
                 return;
 
-            State.Current = State.View.Donwload;
+            State.Current = State.View.Download;
 
             //Plan metadata downloads
             foreach (Game shallowGame in missingGames)
@@ -219,8 +219,13 @@ namespace Librarian
             {
                 foreach (Game fullGame in missingGamesFull)
                 {
-                    foreach (Game.DownloadMeta downloadMeta in fullGame.Downloads.Values)
+                    foreach ((Game.AppType appType, Game.DownloadMeta downloadMeta) in fullGame.Downloads)
+                    {
+                        if(Settings.IgnoredAppTypes.Contains(appType))
+                            continue;
+
                         State.DownloadState.PlanDownload(downloadMeta.Url, downloadMeta.Size);
+                    }
 
                     if (token.IsCancellationRequested)
                         return;
@@ -236,6 +241,9 @@ namespace Librarian
                 {
                     foreach ((Game.AppType appType, Game.DownloadMeta downloadMeta) in missingGame.Downloads)
                     {
+                        if (Settings.IgnoredAppTypes.Contains(appType))
+                            continue;
+
                         WebResource download = await State.DownloadState.DownloadAsync(downloadMeta.Url, token);
 
                         if (token.IsCancellationRequested)
@@ -256,7 +264,7 @@ namespace Librarian
         {
             Console.WriteLine($"Migrating old Librarian data from \"{Settings.MigrateOldLibrarianData}\" to \"{Settings.LibraryRoot}\"");
 
-            LocalInventory localInventory = new LocalInventory(Settings.LibraryRoot);
+            LocalInventory localInventory = new LocalInventory(Settings.LibraryRoot, new List<Game.AppType>());
 
             foreach (Game.BuildType buildType in Enum.GetValues(typeof(Game.BuildType)).Cast<Game.BuildType>())
             {

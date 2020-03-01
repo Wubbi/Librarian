@@ -17,7 +17,7 @@ namespace Librarian
             Init,
             Main,
             Scan,
-            Donwload
+            Download
         }
 
         public View Current
@@ -63,9 +63,9 @@ namespace Librarian
             }
         }
 
-        public State([NotNull] string libraryRootFolder)
+        public State([NotNull] Settings settings)
         {
-            Local = new LocalInventory(libraryRootFolder);
+            Local = new LocalInventory(settings.LibraryRoot,settings.IgnoredAppTypes);
 
             DownloadState = new DownloadState();
 

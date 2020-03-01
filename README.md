@@ -9,10 +9,17 @@ to trigger further actions.
 
 To use the [binaries](https://github.com/Wubbi/Librarian/releases) make sure you have at least the [.Net Core Runtime](https://dotnet.microsoft.com/download) installed.  
 Afterwards you can start the program with `dotnet Librarian`.  
-The Windows binaries contain an executable you can use, though that still requires the runtime to be installed.
+The Windows binaries contain an executable you can use directly, though that still requires the runtime to be installed.
 
 **If you've used the old Librarian (versions before 1.0.0), you can reuse its library!**  
 See the `MigrateOldLibrarianData` setting below for details.
+
+## Screenshots
+This is the default view while Librarian waits for new versions to be released
+![Main](https://github.com/Wubbi/Librarian/blob/master/Resources/ScreenshotMain.png)  
+  
+Download in progress  
+![Downloads](https://github.com/Wubbi/Librarian/blob/master/Resources/ScreenshotDownload.png)
 
 ## Settings
 
